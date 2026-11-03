@@ -24,7 +24,7 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
   );
 }
 
-type FieldProps = InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string };
+type FieldProps = InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string | undefined };
 
 export function Field({ label, error, className, ...props }: FieldProps) {
   return (

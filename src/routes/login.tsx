@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthLayout, Field, FormMessage, SubmitButton } from "@/components/auth/AuthLayout";
-import { fieldErrors, loginSchema } from "@/lib/auth-schemas";
+import { fieldErrors, loginSchema , type FormErrors } from "@/lib/auth-schemas";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<FormErrors>({});
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
 

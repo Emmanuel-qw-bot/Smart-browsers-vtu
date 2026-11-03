@@ -60,11 +60,15 @@ export const newPasswordSchema = z
   .object({ password, confirmPassword: z.string() })
   .refine((d) => d.password === d.confirmPassword, { path: ["confirmPassword"], message: "Passwords don't match" });
 
-export function fieldErrors(err: z.ZodError): Record<string, string> {
+export type FormErrors = {
+  [K in "fullName" | "email" | "phone" | "password" | "confirmPassword" | "source" | "sourceOther" | "inviteCode" | "current"]?: string | undefined;
+};
+
+export function fieldErrors(err: z.ZodError): FormErrors {
   const out: Record<string, string> = {};
   for (const i of err.issues) {
     const k = String(i.path[0]);
     if (!out[k]) out[k] = i.message;
   }
-  return out;
+  return out as FormErrors;
 }

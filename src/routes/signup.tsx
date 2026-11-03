@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { MailCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthLayout, Field, FormMessage, SubmitButton } from "@/components/auth/AuthLayout";
-import { REGISTRATION_SOURCES, fieldErrors, normalizeNigerianPhone, signupSchema } from "@/lib/auth-schemas";
+import { REGISTRATION_SOURCES, fieldErrors, normalizeNigerianPhone, signupSchema , type FormErrors } from "@/lib/auth-schemas";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -22,7 +22,7 @@ function SignupPage() {
     fullName: "", email: "", phone: "", password: "", confirmPassword: "",
     source: "", sourceOther: "", inviteCode: "",
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<FormErrors>({});
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sentTo, setSentTo] = useState("");

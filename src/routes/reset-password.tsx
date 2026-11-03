@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthLayout, Field, FormMessage, SubmitButton } from "@/components/auth/AuthLayout";
-import { fieldErrors, newPasswordSchema } from "@/lib/auth-schemas";
+import { fieldErrors, newPasswordSchema , type FormErrors } from "@/lib/auth-schemas";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
@@ -20,7 +20,7 @@ function ResetPage() {
   const navigate = useNavigate();
   const [ready, setReady] = useState(false);
   const [form, setForm] = useState({ password: "", confirmPassword: "" });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<FormErrors>({});
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
 
