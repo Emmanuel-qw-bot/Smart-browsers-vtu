@@ -25,7 +25,7 @@ export function EmptyPanel({ title, hint }: { title: string; hint: string }) {
   );
 }
 
-export function PageScaffold({ item, children }: { item: NavItem; children?: ReactNode }) {
+export function PageScaffold({ item, children, live = false }: { item: NavItem; children?: ReactNode; live?: boolean }) {
   const Icon = item.icon;
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 animate-rise">
@@ -38,7 +38,7 @@ export function PageScaffold({ item, children }: { item: NavItem; children?: Rea
           <p className="text-sm text-muted-foreground">{item.description}</p>
         </div>
       </header>
-      <DemoNotice />
+      {!live && <DemoNotice>This section isn't live yet. No payments, wallet funding or VTU services are connected — nothing here is real data.</DemoNotice>}
       {children ?? (
         <div className="grid gap-4 md:grid-cols-2">
           <EmptyPanel title="Overview" hint="This section will show real data once the backend is connected." />

@@ -3,6 +3,7 @@ import { Link, useParams } from "@tanstack/react-router";
 import { Menu, ShieldAlert, X } from "lucide-react";
 import { adminNav } from "@/config/navigation";
 import { cn } from "@/lib/utils";
+import { Footer } from "@/components/shared/Footer";
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const { section } = useParams({ strict: false }) as { section?: string };
@@ -43,9 +44,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <div className="lg:ml-72">
         <div className="mx-4 mt-4 flex items-start gap-2 rounded-xl bg-charcoal p-3 text-xs text-charcoal-foreground lg:mx-8">
           <ShieldAlert className="mt-0.5 size-4 shrink-0 text-gold" />
-          Preview of the admin layout. Once sign-in is added, this area will only open for accounts with the admin role, checked on the server.
+          Admin Control Centre — restricted to accounts with the admin role. Most sections are layouts awaiting backend features; only Customers shows live data.
         </div>
-        <main className="px-4 py-5 lg:px-8">{children}</main>
+        <main className="px-4 py-5 lg:px-8">{children}<Footer className="mt-6" /></main>
       </div>
     </div>
   );

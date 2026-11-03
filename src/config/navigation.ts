@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Wallet, Wifi, Smartphone, ArrowLeftRight, Receipt, Gift, Users,
   Zap, Megaphone, Bell, LifeBuoy, BarChart3, UserCog, Server, CreditCard, Tags,
   BadgePercent, Share2, Crown, PartyPopper, Sparkles, ShieldCheck, LineChart,
-  Headphones, Settings, type LucideIcon,
+  Headphones, Settings, UserCircle, type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem {
@@ -25,6 +25,7 @@ export const customerNav: NavItem[] = [
   { slug: "promotions", label: "Promotions", icon: Megaphone, description: "Current offers and discounts." },
   { slug: "notifications", label: "Notifications", icon: Bell, description: "Alerts about your account and purchases." },
   { slug: "support", label: "Support", icon: LifeBuoy, description: "Get help from the Smart Browsers team." },
+  { slug: "account", label: "My Account", icon: UserCircle, description: "Your profile, invitation code, verification and password." },
 ];
 
 /** Shown in the mobile bottom bar; everything else lives in the "More" sheet. */
