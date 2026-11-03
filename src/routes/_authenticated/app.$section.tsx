@@ -2,8 +2,9 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { Eye } from "lucide-react";
 import { customerNav, findNav } from "@/config/navigation";
 import { PageScaffold, EmptyPanel } from "@/components/shared/PageScaffold";
+import { AccountPanel } from "@/components/customer/AccountPanel";
 
-export const Route = createFileRoute("/app/$section")({
+export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: ({ params }) => {
     const item = findNav(customerNav, params.section);
     if (!item) throw notFound();
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/app/$section")({
 function SectionPage() {
   const { slug } = Route.useLoaderData();
   const item = findNav(customerNav, slug)!;
+  if (slug === "account") return <PageScaffold item={item} live><AccountPanel /></PageScaffold>;
   if (slug !== "dashboard") return <PageScaffold item={item} />;
 
   const quick = customerNav.filter((n) => ["buy-data", "buy-airtime", "airtime-to-cash", "wallet", "rewards", "referrals", "weekend-rush", "support"].includes(n.slug));

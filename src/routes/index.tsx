@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ShieldCheck, Wifi, Zap } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
+import { Footer } from "@/components/shared/Footer";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -60,7 +61,8 @@ function Welcome() {
             <Link to="/signup" className="rounded-2xl bg-card py-4 text-center font-semibold text-primary-deep shadow-soft transition active:scale-[.98]">Create Account</Link>
             <Link to="/login" className="rounded-2xl border border-primary-foreground/60 py-4 text-center font-semibold transition hover:bg-primary-foreground/10 active:scale-[.98]">Login</Link>
           </div>
-          <p className="text-center text-[11px] opacity-70">Bonus terms will be confirmed when accounts go live.</p>
+          <p className="text-center text-[11px] opacity-70">Bonus terms will be confirmed when wallets go live.</p>
+          <Footer className="pb-0 text-primary-foreground/80" />
         </div>
       </div>
     </div>

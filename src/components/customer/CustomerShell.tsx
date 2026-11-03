@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { Bell, Menu, X } from "lucide-react";
+import { Bell, Menu, UserCircle, X } from "lucide-react";
+import { Footer } from "@/components/shared/Footer";
 import { customerNav, customerBottomNav } from "@/config/navigation";
 import { LogoMark } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
@@ -39,12 +40,17 @@ export function CustomerShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-card/90 px-4 py-3 backdrop-blur lg:ml-64">
         <span className="lg:hidden"><LogoMark /></span>
         <span className="hidden text-sm text-muted-foreground lg:block">Welcome to Smart Browsers</span>
-        <Link to="/app/$section" params={{ section: "notifications" }} aria-label="Notifications" className="grid size-10 place-items-center rounded-full bg-muted">
-          <Bell className="size-5" />
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/app/$section" params={{ section: "notifications" }} aria-label="Notifications" className="grid size-10 place-items-center rounded-full bg-muted">
+            <Bell className="size-5" />
+          </Link>
+          <Link to="/app/$section" params={{ section: "account" }} aria-label="My account" className="grid size-10 place-items-center rounded-full bg-muted">
+            <UserCircle className="size-5" />
+          </Link>
+        </div>
       </header>
 
-      <main className="px-4 pb-28 pt-5 lg:ml-64 lg:px-8 lg:pb-10">{children}</main>
+      <main className="px-4 pb-24 pt-5 lg:ml-64 lg:px-8 lg:pb-4">{children}<Footer className="mt-6" /></main>
 
       {/* Mobile bottom navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t bg-card pb-[env(safe-area-inset-bottom)] lg:hidden">
