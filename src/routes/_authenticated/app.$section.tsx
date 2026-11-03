@@ -3,7 +3,7 @@ import { Eye } from "lucide-react";
 import { customerNav, findNav } from "@/config/navigation";
 import { PageScaffold, EmptyPanel } from "@/components/shared/PageScaffold";
 
-export const Route = createFileRoute("/app/$section")({
+export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: ({ params }) => {
     const item = findNav(customerNav, params.section);
     if (!item) throw notFound();

@@ -2,7 +2,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { adminNav, findNav } from "@/config/navigation";
 import { PageScaffold, EmptyPanel } from "@/components/shared/PageScaffold";
 
-export const Route = createFileRoute("/admin/$section")({
+export const Route = createFileRoute("/_authenticated/admin/$section")({
   loader: ({ params }) => {
     const item = findNav(adminNav, params.section);
     if (!item) throw notFound();
