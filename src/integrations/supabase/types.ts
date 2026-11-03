@@ -14,16 +14,105 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          email_verified: boolean
+          full_name: string
+          id: string
+          invite_code: string
+          phone: string
+          phone_verified: boolean
+          referred_by: string | null
+          registration_source: Database["public"]["Enums"]["registration_source"]
+          registration_source_other: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          email_verified?: boolean
+          full_name: string
+          id: string
+          invite_code: string
+          phone: string
+          phone_verified?: boolean
+          referred_by?: string | null
+          registration_source?: Database["public"]["Enums"]["registration_source"]
+          registration_source_other?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          email_verified?: boolean
+          full_name?: string
+          id?: string
+          invite_code?: string
+          phone?: string
+          phone_verified?: boolean
+          referred_by?: string | null
+          registration_source?: Database["public"]["Enums"]["registration_source"]
+          registration_source_other?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_invite_code: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      invite_code_is_valid: { Args: { _code: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "customer"
+      registration_source:
+        | "friends"
+        | "whatsapp"
+        | "facebook"
+        | "instagram"
+        | "tiktok"
+        | "google_search"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +239,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "customer"],
+      registration_source: [
+        "friends",
+        "whatsapp",
+        "facebook",
+        "instagram",
+        "tiktok",
+        "google_search",
+        "other",
+      ],
+    },
   },
 } as const
