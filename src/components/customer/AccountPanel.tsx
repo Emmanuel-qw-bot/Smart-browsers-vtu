@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { Field, FormMessage, SubmitButton } from "@/components/auth/AuthLayout";
-import { REGISTRATION_SOURCES, normalizeNigerianPhone, newPasswordSchema, fieldErrors } from "@/lib/auth-schemas";
+import { REGISTRATION_SOURCES, normalizeNigerianPhone, newPasswordSchema, fieldErrors , type FormErrors } from "@/lib/auth-schemas";
 
 type Profile = Tables<"profiles">;
 
@@ -31,7 +31,7 @@ export function AccountPanel() {
   const [edit, setEdit] = useState({ fullName: "", phone: "" });
   const [saving, setSaving] = useState(false);
   const [pw, setPw] = useState({ current: "", password: "", confirmPassword: "" });
-  const [pwErrors, setPwErrors] = useState<Record<string, string>>({});
+  const [pwErrors, setPwErrors] = useState<FormErrors>({});
   const [pwSaving, setPwSaving] = useState(false);
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export function AccountPanel() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
       const { data, error } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
-      if (error || !data) return setLoadError("We couldn't load your profile.");
+      if (error || !data) { setLoadError("We couldn't load your profile."); return; }
       setProfile(data);
       setEdit({ fullName: data.full_name, phone: data.phone.replace(/^\+234/, "0") });
     })();
