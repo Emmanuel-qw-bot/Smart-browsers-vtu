@@ -50,12 +50,12 @@ export function AccountPanel() {
     if (!profile) return;
     const phone = normalizeNigerianPhone(edit.phone);
     const name = edit.fullName.trim();
-    if (name.length < 2 || name.length > 100) return toast.error("Enter your full name");
-    if (!phone) return toast.error("Enter a valid Nigerian phone number");
+    if (name.length < 2 || name.length > 100) { toast.error("Enter your full name"); return; }
+    if (!phone) { toast.error("Enter a valid Nigerian phone number"); return; }
     setSaving(true);
     const { data, error } = await supabase.from("profiles").update({ full_name: name, phone }).eq("id", profile.id).select().single();
     setSaving(false);
-    if (error) return toast.error("Couldn't save your changes");
+    if (error) { toast.error("Couldn't save your changes"); return; }
     setProfile(data);
     toast.success("Profile updated");
   }
@@ -63,13 +63,13 @@ export function AccountPanel() {
   async function changePassword(e: FormEvent) {
     e.preventDefault();
     const parsed = newPasswordSchema.safeParse(pw);
-    if (!parsed.success) return setPwErrors(fieldErrors(parsed.error));
-    if (!pw.current) return setPwErrors({ current: "Enter your current password" });
+    if (!parsed.success) { setPwErrors(fieldErrors(parsed.error)); return; }
+    if (!pw.current) { setPwErrors({ current: "Enter your current password" }); return; }
     setPwErrors({});
     setPwSaving(true);
     const { error } = await supabase.auth.updateUser({ password: parsed.data.password, current_password: pw.current } as never);
     setPwSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     setPw({ current: "", password: "", confirmPassword: "" });
     toast.success("Password changed");
   }
