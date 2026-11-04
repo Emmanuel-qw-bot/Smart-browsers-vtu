@@ -2,7 +2,7 @@
 
 # North star
 
-Customers in Nigeria get their phones topped up with data and airtime.
+Customers in Nigeria get affordable data and airtime, and earn rewards.
 
 ## Metric
 
