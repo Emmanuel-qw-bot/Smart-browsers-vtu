@@ -8,6 +8,13 @@
       "when": 1793733313261,
       "tag": "0000_auth_profiles_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793786799379,
+      "tag": "0001_wallet_ledger",
+      "breakpoints": true
     }
   ]
 }

@@ -88,6 +88,100 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_transactions: {
+        Row: {
+          amount_kobo: number
+          balance_after_kobo: number
+          category: Database["public"]["Enums"]["wallet_txn_category"]
+          created_at: string
+          description: string
+          id: string
+          reference: string
+          user_id: string
+        }
+        Insert: {
+          amount_kobo: number
+          balance_after_kobo: number
+          category: Database["public"]["Enums"]["wallet_txn_category"]
+          created_at?: string
+          description: string
+          id?: string
+          reference: string
+          user_id: string
+        }
+        Update: {
+          amount_kobo?: number
+          balance_after_kobo?: number
+          category?: Database["public"]["Enums"]["wallet_txn_category"]
+          created_at?: string
+          description?: string
+          id?: string
+          reference?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      wallets: {
+        Row: {
+          balance_kobo: number
+          created_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance_kobo?: number
+          created_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance_kobo?: number
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welcome_bonus_settings: {
+        Row: {
+          amount_kobo: number
+          enabled: boolean
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount_kobo?: number
+          enabled?: boolean
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount_kobo?: number
+          enabled?: boolean
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -102,6 +196,16 @@ export type Database = {
         Returns: boolean
       }
       invite_code_is_valid: { Args: { _code: string }; Returns: boolean }
+      wallet_post: {
+        Args: {
+          _amount_kobo: number
+          _category: Database["public"]["Enums"]["wallet_txn_category"]
+          _description: string
+          _reference: string
+          _user_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "customer"
@@ -113,6 +217,12 @@ export type Database = {
         | "tiktok"
         | "google_search"
         | "other"
+      wallet_txn_category:
+        | "deposit"
+        | "promotional"
+        | "reward"
+        | "purchase"
+        | "refund"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -249,6 +359,13 @@ export const Constants = {
         "tiktok",
         "google_search",
         "other",
+      ],
+      wallet_txn_category: [
+        "deposit",
+        "promotional",
+        "reward",
+        "purchase",
+        "refund",
       ],
     },
   },
