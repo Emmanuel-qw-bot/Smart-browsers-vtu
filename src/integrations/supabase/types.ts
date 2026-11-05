@@ -196,6 +196,10 @@ export type Database = {
         Returns: boolean
       }
       invite_code_is_valid: { Args: { _code: string }; Returns: boolean }
+      registration_conflicts: {
+        Args: { _email: string; _phone: string }
+        Returns: Json
+      }
       wallet_post: {
         Args: {
           _amount_kobo: number

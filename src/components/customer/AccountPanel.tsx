@@ -55,7 +55,10 @@ export function AccountPanel() {
     setSaving(true);
     const { data, error } = await supabase.from("profiles").update({ full_name: name, phone }).eq("id", profile.id).select().single();
     setSaving(false);
-    if (error) { toast.error("Couldn't save your changes"); return; }
+    if (error) {
+      toast.error(error.code === "23505" ? "That phone number is already registered to another account." : "Couldn't save your changes");
+      return;
+    }
     setProfile(data);
     toast.success("Profile updated");
   }
@@ -103,8 +106,8 @@ export function AccountPanel() {
       <section className="space-y-3 rounded-2xl border bg-card p-5 shadow-soft">
         <h3 className="font-display text-lg font-semibold">Verification</h3>
         <Status ok={profile.email_verified} label="Email address" pending="Pending" />
-        <Status ok={profile.phone_verified} label="Phone number" pending="Coming soon" />
-        <p className="text-xs text-muted-foreground">Phone verification by SMS code is awaiting setup of an SMS provider and isn't active yet.</p>
+        <Status ok={profile.phone_verified} label="Phone number" pending="Unverified" />
+        <p className="text-xs text-muted-foreground">Your phone number is saved but unverified. Phone verification will be added in the future — your account is activated by email verification.</p>
         <dl className="space-y-1 pt-2 text-sm">
           <div className="flex justify-between"><dt className="text-muted-foreground">Email</dt><dd>{profile.email}</dd></div>
           <div className="flex justify-between"><dt className="text-muted-foreground">Heard about us</dt><dd>{source}</dd></div>
