@@ -39,6 +39,17 @@ function SignupPage() {
     const code = d.inviteCode ?? "";
     setLoading(true);
     try {
+      const phone = normalizeNigerianPhone(d.phone)!;
+      const { data: taken, error: cErr } = await supabase.rpc("registration_conflicts", { _email: d.email, _phone: phone });
+      if (cErr) throw cErr;
+      const t = (taken ?? {}) as { email?: boolean; phone?: boolean };
+      if (t.email || t.phone) {
+        setErrors({
+          email: t.email ? "This email is already registered. Try logging in instead." : undefined,
+          phone: t.phone ? "This phone number is already registered to another account." : undefined,
+        });
+        return;
+      }
       if (code) {
         const { data: ok, error } = await supabase.rpc("invite_code_is_valid", { _code: code });
         if (error) throw error;
@@ -51,7 +62,7 @@ function SignupPage() {
           emailRedirectTo: `${window.location.origin}/app/dashboard`,
           data: {
             full_name: d.fullName,
-            phone: normalizeNigerianPhone(d.phone),
+            phone,
             registration_source: d.source,
             registration_source_other: d.source === "other" ? d.sourceOther : "",
             referral_code: code,
@@ -62,7 +73,11 @@ function SignupPage() {
       setSentTo(d.email);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
-      setServerError(/database error/i.test(msg) ? "We couldn't create your account. Please check your details and try again." : msg);
+      setServerError(/already registered/i.test(msg)
+        ? "This email is already registered. Try logging in instead."
+        : /database error/i.test(msg)
+          ? "We couldn't create your account. Your email or phone number may already be registered — please check and try again."
+          : msg);
     } finally {
       setLoading(false);
     }
@@ -74,7 +89,7 @@ function SignupPage() {
         footer={<Link to="/login" className="font-semibold text-primary">Go to Login</Link>}>
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-secondary p-6 text-center text-sm text-secondary-foreground">
           <MailCheck className="size-10" />
-          <p>We sent a confirmation link to <strong>{sentTo}</strong>. Open it to verify your email, then log in.</p>
+          <p>We sent a confirmation link to <strong>{sentTo}</strong>. Open it to verify your email — that activates your account{" "}and adds your welcome bonus if the offer is running. Then log in.</p>
           <p className="text-xs opacity-75">Can't find it? Check your spam folder.</p>
         </div>
       </AuthLayout>

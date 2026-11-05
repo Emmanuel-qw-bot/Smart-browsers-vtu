@@ -55,7 +55,10 @@ export function AccountPanel() {
     setSaving(true);
     const { data, error } = await supabase.from("profiles").update({ full_name: name, phone }).eq("id", profile.id).select().single();
     setSaving(false);
-    if (error) { toast.error("Couldn't save your changes"); return; }
+    if (error) {
+      toast.error(error.code === "23505" ? "That phone number is already registered to another account." : "Couldn't save your changes");
+      return;
+    }
     setProfile(data);
     toast.success("Profile updated");
   }
