@@ -2,6 +2,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { adminNav, findNav } from "@/config/navigation";
 import { PageScaffold, EmptyPanel } from "@/components/shared/PageScaffold";
 import { CustomersTable } from "@/components/admin/CustomersTable";
+import { WalletsTable, WelcomeBonusSettings } from "@/components/admin/WalletAdmin";
 
 export const Route = createFileRoute("/_authenticated/admin/$section")({
   loader: ({ params }) => {
@@ -28,6 +29,8 @@ function AdminSection() {
   const { slug } = Route.useLoaderData();
   const item = findNav(adminNav, slug)!;
   if (slug === "customers") return <PageScaffold item={item} live><CustomersTable /></PageScaffold>;
+  if (slug === "wallet-management" || slug === "transactions") return <PageScaffold item={item} live><WalletsTable /></PageScaffold>;
+  if (slug === "welcome-bonus") return <PageScaffold item={item} live><WelcomeBonusSettings /></PageScaffold>;
   if (slug !== "overview") return <PageScaffold item={item} />;
   return (
     <PageScaffold item={item}>

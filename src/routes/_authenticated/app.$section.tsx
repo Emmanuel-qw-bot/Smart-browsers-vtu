@@ -1,8 +1,8 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { Eye } from "lucide-react";
 import { customerNav, findNav } from "@/config/navigation";
-import { PageScaffold, EmptyPanel } from "@/components/shared/PageScaffold";
+import { PageScaffold } from "@/components/shared/PageScaffold";
 import { AccountPanel } from "@/components/customer/AccountPanel";
+import { BalanceCard, TransactionList, WalletPanel } from "@/components/customer/WalletPanel";
 
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: ({ params }) => {
@@ -29,17 +29,14 @@ function SectionPage() {
   const { slug } = Route.useLoaderData();
   const item = findNav(customerNav, slug)!;
   if (slug === "account") return <PageScaffold item={item} live><AccountPanel /></PageScaffold>;
+  if (slug === "wallet") return <PageScaffold item={item} live><WalletPanel /></PageScaffold>;
+  if (slug === "transactions") return <PageScaffold item={item} live><TransactionList limit={200} /></PageScaffold>;
   if (slug !== "dashboard") return <PageScaffold item={item} />;
 
   const quick = customerNav.filter((n) => ["buy-data", "buy-airtime", "airtime-to-cash", "wallet", "rewards", "referrals", "weekend-rush", "support"].includes(n.slug));
   return (
-    <PageScaffold item={item}>
-      <div className="rounded-3xl bg-brand p-6 text-primary-foreground shadow-brand">
-        <p className="flex items-center gap-2 text-sm opacity-85"><Eye className="size-4" /> Wallet balance</p>
-        <p className="mt-2 font-display text-4xl font-bold">₦ —</p>
-        <p className="mt-1 text-xs opacity-75">Balance appears here once your account is live.</p>
-        <Link to="/app/$section" params={{ section: "wallet" }} className="mt-5 inline-block rounded-xl bg-card px-4 py-2.5 text-sm font-semibold text-primary-deep">Fund wallet</Link>
-      </div>
+    <PageScaffold item={item} live>
+      <BalanceCard />
       <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
         {quick.map((q) => (
           <Link key={q.slug} to="/app/$section" params={{ section: q.slug }} className="flex flex-col items-center gap-2 rounded-2xl bg-card p-3 text-center text-[11px] font-medium shadow-soft transition active:scale-95">
@@ -48,7 +45,8 @@ function SectionPage() {
           </Link>
         ))}
       </div>
-      <EmptyPanel title="Recent transactions" hint="You haven't made any transactions yet." />
+      <h2 className="font-display text-lg font-semibold">Recent transactions</h2>
+      <TransactionList limit={5} />
     </PageScaffold>
   );
 }
