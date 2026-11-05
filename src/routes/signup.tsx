@@ -89,7 +89,7 @@ function SignupPage() {
         footer={<Link to="/login" className="font-semibold text-primary">Go to Login</Link>}>
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-secondary p-6 text-center text-sm text-secondary-foreground">
           <MailCheck className="size-10" />
-          <p>We sent a confirmation link to <strong>{sentTo}</strong>. Open it to verify your email — that activates your account{" "}and adds your welcome bonus if the offer is running. Then log in.</p>
+          <p>We sent a confirmation link to <strong>{sentTo}</strong>. Open it to verify your email — that activates your account and adds your welcome bonus if the offer is running. Then log in.</p>
           <p className="text-xs opacity-75">Can't find it? Check your spam folder.</p>
         </div>
       </AuthLayout>
