@@ -15,3 +15,4 @@
 - Roles live only in `public.user_roles` (no client write policies); admin checks use `has_role()` in RLS. The `/admin` beforeLoad is UI-only. Why: prevents self-promotion.
 - Customers may only UPDATE `full_name`/`phone` on profiles (column grants). Why: verification flags, codes and referrals are backend-owned.
 - Features without a backend must show the not-live notice; never simulate payments, wallet funding, VTU or OTP success.
+- Accounts activate on email verification (no SMS). Welcome bonus fires once from the DB trigger when profiles.email_verified flips true (idempotent ledger reference). Phone and lower(email) are unique at DB level; signup pre-checks via registration_conflicts() for friendly messages. Why: race-safe, no paid SMS.
