@@ -90,7 +90,7 @@ export function WelcomeBonusSettings() {
         <span className="text-sm font-medium">Bonus amount (₦)</span>
         <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1 w-full rounded-xl border bg-background px-3 py-2.5" />
       </label>
-      <p className="text-xs text-muted-foreground">Credited once per customer, after their phone number is verified. Phone verification needs an SMS provider, which isn't connected yet — so no bonuses will be paid until then.</p>
+      <p className="text-xs text-muted-foreground">Credited exactly once per customer after successful email verification. SMS verification is not required.</p>
       <button onClick={save} disabled={saving} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{saving ? "Saving…" : "Save settings"}</button>
       <p className="text-[11px] text-muted-foreground">Last changed {new Date(data.updated_at).toLocaleString("en-NG")}</p>
     </div>
