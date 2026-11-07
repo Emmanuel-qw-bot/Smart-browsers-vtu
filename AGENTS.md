@@ -16,3 +16,5 @@
 - Customers may only UPDATE `full_name`/`phone` on profiles (column grants). Why: verification flags, codes and referrals are backend-owned.
 - Features without a backend must show the not-live notice; never simulate payments, wallet funding, VTU or OTP success.
 - Accounts activate on email verification (no SMS). Welcome bonus fires once from the DB trigger when profiles.email_verified flips true (idempotent ledger reference). Phone and lower(email) are unique at DB level; signup pre-checks via registration_conflicts() for friendly messages. Why: race-safe, no paid SMS.
+- VTU configuration uses admin-only server functions and RLS with metadata-only audit entries; credentials flow through the linked connector and account responses never enter logs or browser data. Why: provider account responses contain access tokens.
+- Customer VTU purchases remain database-gated until the adapter response contract and approved controlled tests are verified; plan mappings are independent of this gate. Why: authentication success alone cannot establish safe settlement.

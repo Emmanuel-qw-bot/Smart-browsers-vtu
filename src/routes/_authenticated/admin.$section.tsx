@@ -3,11 +3,13 @@ import { adminNav, findNav } from "@/config/navigation";
 import { PageScaffold, EmptyPanel } from "@/components/shared/PageScaffold";
 import { CustomersTable } from "@/components/admin/CustomersTable";
 import { WalletsTable, WelcomeBonusSettings } from "@/components/admin/WalletAdmin";
+import { ProviderControl, providerControlQuery } from "@/components/admin/ProviderControl";
 
 export const Route = createFileRoute("/_authenticated/admin/$section")({
-  loader: ({ params }) => {
+  loader: async ({ params, context }) => {
     const item = findNav(adminNav, params.section);
     if (!item) throw notFound();
+    if (params.section === "vtu-providers" || params.section === "products-pricing") await context.queryClient.ensureQueryData(providerControlQuery);
     return { slug: item.slug };
   },
   head: ({ loaderData }) => {
@@ -19,6 +21,8 @@ export const Route = createFileRoute("/_authenticated/admin/$section")({
         { name: "description", content: item?.description ?? "Admin Control Centre" },
         { property: "og:title", content: title },
         { property: "og:description", content: item?.description ?? "Admin Control Centre" },
+        { property: "og:type", content: "website" },
+        { name: "twitter:card", content: "summary" },
       ],
     };
   },
@@ -27,7 +31,9 @@ export const Route = createFileRoute("/_authenticated/admin/$section")({
 
 function AdminSection() {
   const { slug } = Route.useLoaderData();
-  const item = findNav(adminNav, slug)!;
+  const item = findNav(adminNav, slug);
+  if (!item) throw notFound();
+  if (slug === "vtu-providers" || slug === "products-pricing") return <PageScaffold item={item} live><ProviderControl /></PageScaffold>;
   if (slug === "customers") return <PageScaffold item={item} live><CustomersTable /></PageScaffold>;
   if (slug === "wallet-management" || slug === "transactions") return <PageScaffold item={item} live><WalletsTable /></PageScaffold>;
   if (slug === "welcome-bonus") return <PageScaffold item={item} live><WelcomeBonusSettings /></PageScaffold>;
