@@ -88,6 +88,143 @@ export type Database = {
         }
         Relationships: []
       }
+      vtu_configuration_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      vtu_products: {
+        Row: {
+          active: boolean
+          archived: boolean
+          cost_kobo: number | null
+          created_at: string
+          data_plan_id: number | null
+          id: string
+          markup_percent: number
+          max_amount_kobo: number | null
+          min_amount_kobo: number | null
+          network_id: number
+          network_name: string
+          plan_name: string
+          plan_type: string | null
+          provider_id: string
+          selling_price_kobo: number | null
+          service: string
+          validity: string | null
+        }
+        Insert: {
+          active?: boolean
+          archived?: boolean
+          cost_kobo?: number | null
+          created_at?: string
+          data_plan_id?: number | null
+          id?: string
+          markup_percent?: number
+          max_amount_kobo?: number | null
+          min_amount_kobo?: number | null
+          network_id: number
+          network_name: string
+          plan_name: string
+          plan_type?: string | null
+          provider_id: string
+          selling_price_kobo?: number | null
+          service: string
+          validity?: string | null
+        }
+        Update: {
+          active?: boolean
+          archived?: boolean
+          cost_kobo?: number | null
+          created_at?: string
+          data_plan_id?: number | null
+          id?: string
+          markup_percent?: number
+          max_amount_kobo?: number | null
+          min_amount_kobo?: number | null
+          network_id?: number
+          network_name?: string
+          plan_name?: string
+          plan_type?: string | null
+          provider_id?: string
+          selling_price_kobo?: number | null
+          service?: string
+          validity?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vtu_products_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "vtu_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vtu_providers: {
+        Row: {
+          adapter: string
+          airtime_enabled: boolean
+          connection_status: string
+          created_at: string
+          data_enabled: boolean
+          enabled: boolean
+          id: string
+          last_authenticated_at: string | null
+          last_checked_at: string | null
+          last_error: string | null
+          name: string
+        }
+        Insert: {
+          adapter: string
+          airtime_enabled?: boolean
+          connection_status?: string
+          created_at?: string
+          data_enabled?: boolean
+          enabled?: boolean
+          id?: string
+          last_authenticated_at?: string | null
+          last_checked_at?: string | null
+          last_error?: string | null
+          name: string
+        }
+        Update: {
+          adapter?: string
+          airtime_enabled?: boolean
+          connection_status?: string
+          created_at?: string
+          data_enabled?: boolean
+          enabled?: boolean
+          id?: string
+          last_authenticated_at?: string | null
+          last_checked_at?: string | null
+          last_error?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
       wallet_transactions: {
         Row: {
           amount_kobo: number
