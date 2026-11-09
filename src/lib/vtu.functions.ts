@@ -85,4 +85,39 @@ export const testProviderConnection = createServerFn({ method: "POST" })
     }).eq("id", data.id).select("id").single();
     if (result.error) throw new Error("Could not record the connection check.");
     return { ok, message };
-  });
+  })
+export const adjustCustomerWallet = createServerFn({ method: "POST" })
+    .middleware([requireSupabaseAuth])
+      .inputValidator((input) =>
+          z.object({
+                userId: z.string().uuid(),
+                      category: z.enum(["deposit", "promotional", "reward"]),
+                            amountNaira: z.number().positive().max(1000000),
+                                  action: z.enum(["credit", "debit"]),
+                                        description: z.string().min(2).max(120),
+                                            }).parse(input)
+                                              )
+                                                .handler(async ({ data, context }) => {
+                                                    const { data: admin } = await context.supabase.rpc("has_role", {
+                                                          _user_id: context.userId,
+                                                                _role: "admin",
+                                                                    });
+                                                                        if (!admin) throw new Error("Administrator permission required.");
+
+                                                                            const kobo = Math.round(data.amountNaira * 100);
+                                                                                const amountKobo = data.action === "credit" ? kobo : -kobo;
+                                                                                    const ref = `manual:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+
+                                                                                        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+                                                                                            const { data: txnId, error } = await supabaseAdmin.rpc("wallet_post", {
+                                                                                                  _user_id: data.userId,
+                                                                                                        _category: data.category,
+                                                                                                              _amount_kobo: amountKobo,
+                                                                                                                    _reference: ref,
+                                                                                                                          _description: data.description,
+                                                                                                                              });
+
+                                                                                                                                  if (error) throw new Error(error.message || "Failed to update wallet balance.");
+                                                                                                                                      return { success: true, txnId };
+                                                                                                                                        });
+                                                                                                                                        
