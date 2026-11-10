@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+imort { supabase } from "@/integrations/supabase/client";
 import { FormMessage } from "@/components/auth/AuthLayout";
 import { CATEGORY_LABELS, bonusSettingsQuery, formatNaira, nairaToKobo } from "@/lib/wallet";
 
@@ -46,53 +46,104 @@ export function WalletsTable() {
                 <td className="px-4 py-2">{CATEGORY_LABELS[t.category]}</td>
                 <td className="px-4 py-2">{formatNaira(t.amount_kobo)}</td>
                 <td className="px-4 py-2">{formatNaira(t.balance_after_kobo)}</td>
-                <td className="px-4 py-2 font-mono text-xs">{t.reference}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-        )}
-      </section>
-    </div>
-  );
-}
+                <td className="px-4 py-2 font-mono  text-xs">{t.reference}</td>
 
-export function WelcomeBonusSettings() {
-  const qc = useQueryClient();
-  const { data, isLoading, error } = useQuery(bonusSettingsQuery);
-  const [enabled, setEnabled] = useState(true);
-  const [amount, setAmount] = useState("");
-  const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    if (data) { setEnabled(data.enabled); setAmount(String(data.amount_kobo / 100)); }
-  }, [data]);
+                              </tr>
 
-  if (isLoading) return <div className="h-40 animate-pulse rounded-2xl bg-card" />;
-  if (error || !data) return <FormMessage>Couldn't load bonus settings.</FormMessage>;
+                                          ))}</tbody>
 
-  async function save() {
-    const kobo = nairaToKobo(amount);
-    if (kobo === null) { toast.error("Enter an amount between ₦0.01 and ₦100,000."); return; }
-    setSaving(true);
-    const { data: rows, error } = await supabase.from("welcome_bonus_settings").update({ enabled, amount_kobo: kobo }).eq("id", true).select("id");
-    setSaving(false);
-    if (error || !rows?.length) { toast.error("Couldn't save — admin permission required."); return; }
-    toast.success("Welcome bonus settings saved");
-    await qc.invalidateQueries({ queryKey: bonusSettingsQuery.queryKey });
-  }
+                                                    </table>
 
-  return (
-    <div className="space-y-4 rounded-2xl bg-card p-5 shadow-soft">
-      <label className="flex items-center justify-between gap-4">
-        <span><span className="font-medium">Welcome bonus active</span><span className="block text-xs text-muted-foreground">Turning it off only stops new bonuses; bonuses already credited stay.</span></span>
-        <input type="checkbox" className="size-5 accent-[var(--color-primary)]" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-      </label>
-      <label className="block">
-        <span className="text-sm font-medium">Bonus amount (₦)</span>
-        <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1 w-full rounded-xl border bg-background px-3 py-2.5" />
-      </label>
-      <p className="text-xs text-muted-foreground">Credited exactly once per customer after successful email verification. SMS verification is not required.</p>
-      <button onClick={save} disabled={saving} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{saving ? "Saving…" : "Save settings"}</button>
-      <p className="text-[11px] text-muted-foreground">Last changed {new Date(data.updated_at).toLocaleString("en-NG")}</p>
-    </div>
-  );
-}
+                                                            )}
+
+                                                                  </section>
+
+                                                                      </div>
+
+                                                                        );
+
+                                                                        }
+
+
+
+                                                                        export function WelcomeBonusSettings() {
+
+                                                                          const qc = useQueryClient();
+
+                                                                            const { data, isLoading, error } = useQuery(bonusSettingsQuery);
+
+                                                                              const [enabled, setEnabled] = useState(true);
+
+                                                                                const [amount, setAmount] = useState("");
+
+                                                                                  const [saving, setSaving] = useState(false);
+
+                                                                                    useEffect(() => {
+
+                                                                                        if (data) { setEnabled(data.enabled); setAmount(String(data.amount_kobo / 100)); }
+
+                                                                                          }, [data]);
+
+
+
+                                                                                            if (isLoading) return <div className="h-40 animate-pulse rounded-2xl bg-card" />;
+
+                                                                                              if (error || !data) return <FormMessage>Couldn't load bonus settings.</FormMessage>;
+
+
+
+                                                                                                async function save() {
+
+                                                                                                    const kobo = nairaToKobo(amount);
+
+                                                                                                        if (kobo === null) { toast.error("Enter an amount between ₦0.01 and ₦100,000."); return; }
+
+                                                                                                            setSaving(true);
+
+                                                                                                                const { data: rows, error } = await supabase.from("welcome_bonus_settings").update({ enabled, amount_kobo: kobo }).eq("id", true).select("id");
+
+                                                                                                                    setSaving(false);
+
+                                                                                                                       if (error || !rows?.length) { toast.error("Couldn't save — admin permission required."); return; }
+
+                                                                                                                            toast.success("Welcome bonus settings saved");
+
+                                                                                                                                await qc.invalidateQueries({ queryKey: bonusSettingsQuery.queryKey });
+
+                                                                                                                                  }
+
+
+
+                                                                                                                                    return (
+
+                                                                                                                                        <div className="space-y-4 rounded-2xl bg-card p-5 shadow-soft">
+
+                                                                                                                                              <label className="flex items-center justify-between gap-4">
+
+                                                                                                                                                      <span><span className="font-medium">Welcome bonus active</span><span className="block text-xs text-muted-foreground">Turning it off only stops new bonuses; bonuses already credited stay.</span></span>
+
+                                                                                                                                                              <input type="checkbox" className="size-5 accent-[var(--color-primary)]" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+
+                                                                                                                                                                    </label>
+
+                                                                                                                                                                          <label className="block">
+
+                                                                                                                                                                                  <span className="text-sm font-medium">Bonus amount (₦)</span>
+
+                                                                                                                                                                                          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1 w-full rounded-xl border bg-background px-3 py-2.5" />
+
+                                                                                                                                                                                                </label>
+
+                                                                                                                                                                                                      <p className="text-xs text-muted-foreground">Credited exactly once per customer after successful email verification. SMS verification is not required.</p>
+
+                                                                                                                                                                                                            <button onClick={save} disabled={saving} className="rounded-xl bg-
+
+                                                                                                                                                                                                            primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60">{saving ? "Saving…" : "Save settings"}</button>
+
+                                                                                                                                                                                                                  <p className="text-[11px] text-muted-foreground">Last changed {new Date(data.updated_at).toLocaleString("en-NG")}</p>
+
+                                                                                                                                                                                                                      </div>
+
+                                                                                                                                                                                                                        );
+
+                                                                                                                                                                                                                        }
