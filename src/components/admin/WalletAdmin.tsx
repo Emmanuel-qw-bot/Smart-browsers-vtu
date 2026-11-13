@@ -40,12 +40,7 @@ interface CustomerOption {
                                                       if (!numAmount || numAmount <= 0) {
                                                             toast.error("Enter a valid amount greater than 0.");
                                                                   return;
-                                                                      }
-    }
-    if (!numAmount || numAmount <= 0) {
-              toast.error("Enter a valid amount greater than 0.");
-                    return;
-                        }
+                                                      }             
                             if (!note.trim()) {
                                   toast.error("Please provide a note or reason for this adjustment.");
                                         return;
@@ -59,7 +54,7 @@ interface CustomerOption {
                                                                                       category,
                                                                                                 amountNaira: numAmount,
                                                                                                           action,
-                                                                                                                    descripton: note.trim(),
+                                                                                                                    description: note.trim(),
                                                                                                                             },
                                                                                                                         });
                 toast.success(
