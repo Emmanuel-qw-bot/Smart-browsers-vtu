@@ -120,4 +120,46 @@ export const adjustCustomerWallet = createServerFn({ method: "POST" })
                                                                                                                                   if (error) throw new Error(error.message || "Failed to update wallet balance.");
                                                                                                                                       return { success: true, txnId };
                                                                                                                                         });
-                                                                                                                                        
+export const getCustomerProducts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+    .handler(async () => {
+        const { supabaseAdmin } = await import(
+              "@/integrations/supabase/client.server"
+                  );
+
+                      // Only show products from an authenticated Arewabundle connection.
+                          const { data: providers, error: providerError } = await supabaseAdmin
+                                .from("vtu_providers")
+                                      .select("id")
+                                            .eq("adapter", "arewabundle")
+                                                  .eq("connection_status", "authenticated");
+
+                                                      if (providerError) {
+                                                            throw new Error("Could not load available products.");
+                                                                }
+
+                                                                    const providerIds = (providers ?? []).map((provider) => provider.id);
+
+                                                                        if (providerIds.length === 0) {
+                                                                              return { products: [], purchasesAvailable: false };
+                                                                                  }
+
+                                                                                      const { data, error } = await supabaseAdmin
+                                                                                            .from("vtu_products")
+                                                                                                  .select(
+                                                                                                          "id, service, network_name, plan_name, validity, selling_price_kobo, min_amount_kobo, max_amount_kobo"
+                                                                                                                )
+                                                                                                                      .in("provider_id", providerIds)
+                                                                                                                            .eq("active", true)
+                                                                                                                                  .eq("archived", false)
+                                                                                                                                        .order("selling_price_kobo", { ascending: true });
+
+                                                                                                                                            if (error) {
+                                                                                                                                                  throw new Error("Could not load available products.");
+                                                                                                                                                      }
+
+                                                                                                                                                          return {
+                                                                                                                                                                products: data ?? [],
+                                                                                                                                                                      purchasesAvailable: false,
+                                                                                                                                                                          };
+                                                                                                                                                                            });
