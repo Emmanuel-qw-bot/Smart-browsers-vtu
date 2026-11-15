@@ -158,7 +158,7 @@ export const getCustomerProducts = createServerFn({ method: "GET" })
                                       .order("selling_price_kobo", { ascending: true });
 
                                           if (error) throw new Error("Could not load products.");
-                                              return { products: data ?? [], purchasesAvailable: true };
+                                              return { products: data ?? [], purchasesAvailable: false };
                                                 });
 function normalizePhone(raw: string): string {
       const cleaned = raw.replace(/\D/g, "");
