@@ -163,31 +163,33 @@ export const getCustomerProducts = createServerFn({ method: "GET" })
 function normalizePhone(raw: string): string {
       const cleaned = raw.replace(/\D/g, "");
         if (cleaned.startsWith("0") && cleaned.length === 11) {
-            return "234" + cleaned.slice(1);
+            return cleaned;
               }
                 if (cleaned.startsWith("234") && cleaned.length === 13) {
-                    return cleaned;
+                    return "0" + cleaned.slice(3);
                       }
                         if (cleaned.length === 10) {
-                            return "234" + cleaned;
+                            return "0" + cleaned;
                               }
                                 return cleaned;
                                 }
-export const purchaseAirtime = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-    .inputValidator((input) =>
-        z.object({
-              networkId: z.number().int().positive(),
-                    networkName: z.string().min(1),
-                          phone: z.string().min(10).max(15),
-                                amountNaira: z.number().int().min(50).max(10000),
-                                    }).parse(input)
-                                      )
-                                        .handler(async ({ data, context }) => {
-                                            const formattedPhone = normalizePhone(data.phone);
-                                                if (!/^234\d{10}$/.test(formattedPhone)) {
-                                                      throw new Error("Invalid Nigerian phone number. Example: 08012345678");
-                                                          }
+                                export const purchaseAirtime = createServerFn({ method: "POST" })
+                                  .middleware([requireSupabaseAuth])
+                                    .inputValidator((input) =>
+                                        z.object({
+                                              networkId: z.number().int().positive(),
+                                                    networkName: z.string().min(1),
+                                                          phone: z.string().min(10).max(15),
+                                                                amountNaira: z.number().int().min(50).max(10000),
+                                                                    }).parse(input)
+                                                                      )
+                                                                        .handler(async ({ data, context }) => {
+                                                                            const formattedPhone = normalizePhone(data.phone);
+                                                                                if (!/^0\d{10}$/.test(formattedPhone)) {
+                                                                                      throw new Error("Invalid Nigerian phone number. Example: 08012345678");
+                                                                                          }
+                                                                                          
+}
 const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const amountKobo = data.amountNaira * 100;
 
@@ -265,13 +267,14 @@ if (debitError) {
                                                                                                                                                                                                                                                                 Accept: "application/json",
                                                                                                                                                                                                                                                                         },
                                                                                                                                                                                                                                                                                 body: JSON.stringify({
-                                                                                                                                                                                                                                                                                          network: data.networkId,
-                                                                                                                                                                                                                                                                                                    phone: formattedPhone,
-                                                                                                                                                                                                                                                                                                              amount: data.amountNaira,
-                                                                                                                                                                                                                                                                                                                        "request-id": purchaseRef,
-                                                                                                                                                                                                                                                                                                                                }),
+                                                                                                                                                                                                                                                                                      network: data.networkId,
+                                                                                                                                                                                                                                                                                        phone: formattedPhone,
+                                                                                                                                                                                                                                                                                          plan_type: "VTU",
+                                                                                                                                                                                                                                                                                            bypass: false,
+                                                                                                                                                                                                                                                                                              amount: data.amountNaira,
+                                                                                                                                                                                                                                                                                                "request-id": purchaseRef,
+                                                                                                                                                                                                                                                                                                })
                                                                                                                                                                                                                                                                                                                                       });
-
                                                                                                                                                                                                                                                                                                                                             const responseBody = (await response.json().catch(() => null)) as { status?: string; message?: string } | null;
                                                                                                                                                                                                                                                                                                                                                   const isSuccess = response.ok && responseBody?.status === "success";
 
@@ -292,7 +295,7 @@ if (debitError) {
                                                                                                                                                                                                                                                                                                                                                                                                                                                                       message: `₦${data.amountNaira} airtime has been sent to ${data.phone}!`,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                               reference: purchaseRef,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     };
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+
                                       } catch (err) {
                                             if (err instanceof Error && err.message.includes("Refund:")) {
                                                     throw err;
