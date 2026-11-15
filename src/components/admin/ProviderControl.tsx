@@ -25,6 +25,21 @@ export function ProviderControl() {
   const [editing, setEditing] = useState<{ provider: string; service: "data" | "airtime"; product?: Tables<"vtu_products"> } | null>(null);
   const [notice, setNotice] = useState("");
   async function run(action: () => Promise<unknown>) {
+      setBusy(true);
+        try {
+            await action();
+                await qc.invalidateQueries({ queryKey: providerControlQuery.queryKey });
+                  } catch (error) {
+                      const message = error instanceof Error
+                            ? error.message
+                                  : "Could not complete the action. Please try again.";
+
+                                      setNotice(`Connection or settings check failed: ${message}`);
+                                          toast.error(message);
+                                            } finally {
+                                                setBusy(false);
+                                                  }
+                                                  }
     setBusy(true);
     try { await action(); await qc.invalidateQueries({ queryKey: providerControlQuery.queryKey }); }
     catch (error) {
