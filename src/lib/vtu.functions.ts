@@ -5,263 +5,279 @@ import { hasAccessToken, productSchema, providerSchema } from "./vtu-schemas";
 
 export const getProviderControl = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { data: admin, error } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (error || !admin) throw new Error("Administrator permission required.");
-    const [providers, products, audit] = await Promise.all([
-      context.supabase.from("vtu_providers").select("*").order("created_at"),
-      context.supabase.from("vtu_products").select("*").eq("archived", false).order("created_at"),
-      context.supabase.from("vtu_configuration_audit").select("*").order("created_at", { ascending: false }).limit(30),
-    ]);
-    if (providers.error || products.error || audit.error) throw new Error("Could not load provider settings.");
-    return { providers: providers.data, products: products.data, audit: audit.data };
-  });
-
-export const addProvider = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth]).inputValidator((input) => providerSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    const { data: admin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!admin) throw new Error("Administrator permission required.");
-    const result = await context.supabase.from("vtu_providers").insert(data).select("id").single();
+    .handler(async ({ context }) => {
+        const { data: admin, error } = await context.supabase.rpc("has_role", {
+              _user_id: context.userId,
+                    _role: "admin",
+                        });
+                            if (error || !admin) throw new Error("Administrator permission required.");
+                            const [providers, products, audit] = await Promise.all([
+                                      context.supabase.from("vtu_providers").select("*").order("created_at"),
+                                            context.supabase.from("vtu_products").select("*").eq("archived", false).order("created_at"),
+                                                  context.supabase.from("vtu_configuration_audit").select("*").order("created_at", { ascending: false }).limit(30),
+                                                      ]);
+                                                          if (providers.error || products.error || audit.error) throw new Error("Could not load provider settings.");
+                                                              return { providers: providers.data, products: products.data, audit: audit.data };
+                                                                });
+                                                                export const addProvider = createServerFn({ method: "POST" })
+                                                                  .middleware([requireSupabaseAuth])
+                                                                    .inputValidator((input) => providerSchema.parse(input))
+                                                                      .handler(async ({ data, context }) => {
+                                                                          const { data: admin } = await context.supabase.rpc("has_role", {
+                                                                                _user_id: context.userId,
+                                                                                      _role: "admin",
+                                                                                          });
+                                                                                              if (!admin) throw new Error("Administrator permission required.");
+const result = await context.supabase.from("vtu_providers").insert(data).select("id").single();
     if (result.error) throw new Error("Could not add provider; Arewabundle can only be added once.");
-    return result.data;
-  });
-
-export const saveProduct = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth]).inputValidator((input) => productSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    const { data: admin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!admin) throw new Error("Administrator permission required.");
-    const { id, ...values } = data;
+        return result.data;
+          });
+          export const saveProduct = createServerFn({ method: "POST" })
+            .middleware([requireSupabaseAuth])
+              .inputValidator((input) => productSchema.parse(input))
+                .handler(async ({ data, context }) => {
+                    const { data: admin } = await context.supabase.rpc("has_role", {
+                          _user_id: context.userId,
+                                _role: "admin",
+                                    });
+                                        if (!admin) throw new Error("Administrator permission required.");
+const { id, ...values } = data;
     const result = id
-      ? await context.supabase.from("vtu_products").update(values).eq("id", id).select("id").single()
-      : await context.supabase.from("vtu_products").insert(values).select("id").single();
-    if (result.error) throw new Error("Could not save this mapping.");
-    return result.data;
-  });
-
-export const archiveProduct = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth]).inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => {
-    const { data: admin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!admin) throw new Error("Administrator permission required.");
-    const result = await context.supabase.from("vtu_products").update({ archived: true, active: false }).eq("id", data.id).select("id").single();
+          ? await context.supabase.from("vtu_products").update(values).eq("id", id).select("id").single()
+                : await context.supabase.from("vtu_products").insert(values).select("id").single();
+                    if (result.error) throw new Error("Could not save this mapping.");
+                        return result.data;
+                          });
+                          export const archiveProduct = createServerFn({ method: "POST" })
+                            .middleware([requireSupabaseAuth])
+                              .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+                                .handler(async ({ data, context }) => {
+                                    const { data: admin } = await context.supabase.rpc("has_role", {
+                                          _user_id: context.userId,
+                                                _role: "admin",
+                                                    });
+                                                        if (!admin) throw new Error("Administrator permission required.");
+const result = await context.supabase.from("vtu_products").update({ archived: true, active: false }).eq("id", data.id).select("id").single();
     if (result.error) throw new Error("Could not remove the mapping.");
-    return { removed: true };
-  });
+        return { removed: true };
+          });
 
-export const testProviderConnection = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth]).inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => {
-    const { data: admin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (!admin) throw new Error("Administrator permission required.");
-    const { data: provider } = await context.supabase.from("vtu_providers").select("adapter").eq("id", data.id).single();
+          export const testProviderConnection = createServerFn({ method: "POST" })
+            .middleware([requireSupabaseAuth])
+              .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+                .handler(async ({ data, context }) => {
+                    const { data: admin } = await context.supabase.rpc("has_role", {
+                          _user_id: context.userId,
+                                _role: "admin",
+                                    });
+                                        if (!admin) throw new Error("Administrator permission required.");
+const { data: provider } = await context.supabase.from("vtu_providers").select("adapter").eq("id", data.id).single();
     if (provider?.adapter !== "arewabundle") return { ok: false, message: "This provider has no implemented connection." };
-    const gatewayKey = process.env["LOVABLE_API_KEY"];
-    const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
-    let ok = false;
-    let status: "authenticated" | "error" | "not_configured" = "not_configured";
-    let message = "Arewabundle account credentials are not configured.";
-    if (gatewayKey && connectionKey) {
-      status = "error";
-      try {
-        const response = await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user", {
-          method: "POST", redirect: "error", signal: AbortSignal.timeout(20000),
-          headers: { Authorization: `Bearer ${gatewayKey}`, "X-Connection-Api-Key": connectionKey, Accept: "application/json" },
-        });
-        // Never persist, log or return raw account bodies: they contain tokens.
-        ok = response.ok && hasAccessToken(await response.json());
-        message = ok ? "Account authentication passed. Purchases remain disabled pending provider response verification and approved testing."
-          : `Account authentication did not pass (HTTP ${response.status}). Check the Arewabundle connection.`;
-        if (ok) status = "authenticated";
-      } catch {
-        message = "Account authentication could not be completed. No purchase was made.";
-      }
-    }
-    const now = new Date().toISOString();
-    const result = await context.supabase.from("vtu_providers").update({
-      connection_status: status, last_checked_at: now, last_error: ok ? null : message,
-      ...(ok ? { last_authenticated_at: now } : {}),
-    }).eq("id", data.id).select("id").single();
-    if (result.error) throw new Error("Could not record the connection check.");
-    export const testProviderConnection = createServerFn({ method: "POST" })
-      .middleware([requireSupabaseAuth])
-        .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
-          .handler(async ({ data, context }) => {
-              const { data: admin, error: adminError } =
-                    await context.supabase.rpc("has_role", {
-                            _user_id: context.userId,
-                                    _role: "admin",
-                                          });
 
-                                              if (adminError || !admin) {
-                                                    throw new Error("Administrator permission required.");
-                                                        }
+        const gatewayKey = process.env["LOVABLE_API_KEY"];
+            const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
+                let ok = false;
+                    let status: "authenticated" | "error" | "not_configured" = "not_configured";
+                        let message = "Arewabundle account credentials are not configured.";
+if (gatewayKey && connectionKey) {
+          status = "error";
+                try {
+                        const response = await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user", {
+                                  method: "POST",
+                                            redirect: "error",
+                                                      signal: AbortSignal.timeout(20000),
+                                                                headers: {
+                                                                            Authorization: `Bearer ${gatewayKey}`,
+                                                                                        "X-Connection-Api-Key": connectionKey,
+                                                                                                    Accept: "application/json",
+                                                                                                              },
+                                                                                                                      });
+                                                                                                                              ok = response.ok && hasAccessToken(await response.json());
+                                                                                                                                      message = ok
+                                                                                                                                                ? "Account authentication passed. Ready for purchase test."
+                                                                                                                                                          : `Account authentication did not pass (HTTP ${response.status}). Check credentials.`;
+                                                                                                                                                                  if (ok) status = "authenticated";
+                                                                                                                                                                        } catch {
+                                                                                                                                                                                message = "Account authentication could not be completed.";
+                                                                                                                                                                                      }
+                                                                                                                                                                                          }
+const now = new Date().toISOString();
+    await context.supabase
+          .from("vtu_providers")
+                .update({
+                        connection_status: status,
+                                last_checked_at: now,
+                                        last_error: ok ? null : message,
+                                                ...(ok ? { last_authenticated_at: now } : {}),
+                                                      })
+                                                            .eq("id", data.id);
 
-                                                            const { data: provider, error: providerError } =
-                                                                  await context.supabase
-                                                                          .from("vtu_providers")
-                                                                                  .select("adapter")
-                                                                                          .eq("id", data.id)
-                                                                                                  .single();
-
-                                                                                                      if (providerError || !provider) {
-                                                                                                            throw new Error("Could not find this provider. Refresh the page and try again.");
-                                                                                                                }
-
-                                                                                                                    if (provider.adapter !== "arewabundle") {
-                                                                                                                          throw new Error("This provider has no implemented connection.");
-                                                                                                                              }
-
-                                                                                                                                  const gatewayKey = process.env["LOVABLE_API_KEY"];
-                                                                                                                                      const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
-
-                                                                                                                                          let ok = false;
-                                                                                                                                              let status: "authenticated" | "error" | "not_configured" =
-                                                                                                                                                    "not_configured";
-                                                                                                                                                        let message = "Missing Arewabundle connection configuration.";
-
-                                                                                                                                                            if (!gatewayKey || !connectionKey) {
-                                                                                                                                                                  const missing = [
-                                                                                                                                                                          ...(!gatewayKey ? ["LOVABLE_API_KEY"] : []),
-                                                                                                                                                                                  ...(!connectionKey ? ["UDC_AREWABUNDLE_ACCOUNT_API_KEY"] : []),
-                                                                                                                                                                                        ];
-                                                                                                                                                                                              message = `Missing server configuration: ${missing.join(", ")}.`;
-                                                                                                                                                                                                  } else {
-                                                                                                                                                                                                        status = "error";
-
-                                                                                                                                                                                                              try {
-                                                                                                                                                                                                                      const response = await fetch(
-                                                                                                                                                                                                                                "https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user",
-                                                                                                                                                                                                                                          {
-                                                                                                                                                                                                                                                      method: "POST",
-                                                                                                                                                                                                                                                                  redirect: "error",
-                                                                                                                                                                                                                                                                              signal: AbortSignal.timeout(20000),
-                                                                                                                                                                                                                                                                                          headers: {
-                                                                                                                                                                                                                                                                                                        Authorization: `Bearer ${gatewayKey}`,
-                                                                                                                                                                                                                                                                                                                      "X-Connection-Api-Key": connectionKey,
-                                                                                                                                                                                                                                                                                                                                    Accept: "application/json",
-                                                                                                                                                                                                                                                                                                                                                },
-                                                                                                                                                                                                                                                                                                                                                          },
-                                                                                                                                                                                                                                                                                                                                                                  );
-
-                                                                                                                                                                                                                                                                                                                                                                          if (!response.ok) {
-                                                                                                                                                                                                                                                                                                                                                                                    message = `Connection request failed with HTTP ${response.status}. Check the connector configuration.`;
-                                                                                                                                                                                                                                                                                                                                                                                            } else {
-                                                                                                                                                                                                                                                                                                                                                                                                      let body: unknown;
-
-                                                                                                                                                                                                                                                                                                                                                                                                                try {
-                                                                                                                                                                                                                                                                                                                                                                                                                            body = await response.json();
-                                                                                                                                                                                                                                                                                                                                                                                                                                      } catch {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                  body = null;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                            }
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                      if (hasAccessToken(body)) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  ok = true;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              status = "authenticated";
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          message = "Arewabundle account authentication passed. Purchase testing is still required.";
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    } else {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                message = "The connection responded, but no valid AccessToken was found.";
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        } catch {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                message = "Could not reach the Arewabundle connector. Check the connection and try again.";
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          }
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              const now = new Date().toISOString();
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  const { error: updateError } = await context.supabase
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        .from("vtu_providers")
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              .update({
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      connection_status: status,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              last_checked_at: now,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      last_error: ok ? null : message,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ...(ok ? { last_authenticated_at: now } : {}),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    })
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          .eq("id", data.id);
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              if (updateError) {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    throw new Error("The connection test ran, but its result could not be saved.");
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            return { ok, message };
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              });
-
+                                                                return { ok, message };
+                                                                  });
 export const adjustCustomerWallet = createServerFn({ method: "POST" })
-    .middleware([requireSupabaseAuth])
-      .inputValidator((input) =>
-          z.object({
-                userId: z.string().uuid(),
-                      category: z.enum(["deposit", "promotional", "reward"]),
-                            amountNaira: z.number().positive().max(1000000),
-                                  action: z.enum(["credit", "debit"]),
-                                        description: z.string().min(2).max(120),
-                                            }).parse(input)
-                                              )
-                                                .handler(async ({ data, context }) => {
-                                                    const { data: admin } = await context.supabase.rpc("has_role", {
-                                                          _user_id: context.userId,
-                                                                _role: "admin",
-                                                                    });
-                                                                        if (!admin) throw new Error("Administrator permission required.");
+  .middleware([requireSupabaseAuth])
+    .inputValidator((input) =>
+        z.object({
+              userId: z.string().uuid(),
+                    category: z.enum(["deposit", "promotional", "reward"]),
+                          amountNaira: z.number().positive().max(1000000),
+                                action: z.enum(["credit", "debit"]),
+                                      description: z.string().min(2).max(120),
+                                          }).parse(input)
+                                            )
+                                              .handler(async ({ data, context }) => {
+                                                  const { data: admin } = await context.supabase.rpc("has_role", {
+                                                        _user_id: context.userId,
+                                                              _role: "admin",
+                                                                  });
+                                                                      if (!admin) throw new Error("Administrator permission required.");
+const kobo = Math.round(data.amountNaira * 100);
+    const amountKobo = data.action === "credit" ? kobo : -kobo;
+        const ref = `manual:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
 
-                                                                            const kobo = Math.round(data.amountNaira * 100);
-                                                                                const amountKobo = data.action === "credit" ? kobo : -kobo;
-                                                                                    const ref = `manual:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+                const { data: txnId, error } = await supabaseAdmin.rpc("wallet_post", {
+                      _user_id: data.userId,
+                            _category: data.category,
+                                  _amount_kobo: amountKobo,
+                                        _reference: ref,
+                                              _description: data.description,
+                                                  });
 
-                                                                                        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-                                                                                            const { data: txnId, error } = await supabaseAdmin.rpc("wallet_post", {
-                                                                                                  _user_id: data.userId,
-                                                                                                        _category: data.category,
-                                                                                                              _amount_kobo: amountKobo,
-                                                                                                                    _reference: ref,
-                                                                                                                          _description: data.description,
-                                                                                                                              });
-
-                                                                                                                                  if (error) throw new Error(error.message || "Failed to update wallet balance.");
-                                                                                                                                      return { success: true, txnId };
-                                                                                                                                        });
+                                                      if (error) throw new Error(error.message || "Failed to update wallet balance.");
+                                                          return { success: true, txnId };
+                                                            });
 export const getCustomerProducts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-    .handler(async () => {
-        const { supabaseAdmin } = await import(
-              "@/integrations/supabase/client.server"
-                  );
+    .handler(async ({ context }) => {
+        const { data, error } = await context.supabase
+              .from("vtu_products")
+                    .select("id, service, network_name, network_id, plan_name, validity, selling_price_kobo, min_amount_kobo, max_amount_kobo")
+                          .eq("active", true)
+                                .eq("archived", false)
+                                      .order("selling_price_kobo", { ascending: true });
 
-                      // Only show products from an authenticated Arewabundle connection.
-                          const { data: providers, error: providerError } = await supabaseAdmin
-                                .from("vtu_providers")
-                                      .select("id")
-                                            .eq("adapter", "arewabundle")
-                                                  .eq("connection_status", "authenticated");
+                                          if (error) throw new Error("Could not load products.");
+                                              return { products: data ?? [], purchasesAvailable: true };
+                                                });
+function normalizePhone(raw: string): string {
+      const cleaned = raw.replace(/\D/g, "");
+        if (cleaned.startsWith("0") && cleaned.length === 11) {
+            return "234" + cleaned.slice(1);
+              }
+                if (cleaned.startsWith("234") && cleaned.length === 13) {
+                    return cleaned;
+                      }
+                        if (cleaned.length === 10) {
+                            return "234" + cleaned;
+                              }
+                                return cleaned;
+                                }
+export const purchaseAirtime = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+    .inputValidator((input) =>
+        z.object({
+              networkId: z.number().int().positive(),
+                    networkName: z.string().min(1),
+                          phone: z.string().min(10).max(15),
+                                amountNaira: z.number().int().min(50).max(10000),
+                                    }).parse(input)
+                                      )
+                                        .handler(async ({ data, context }) => {
+                                            const formattedPhone = normalizePhone(data.phone);
+                                                if (!/^234\d{10}$/.test(formattedPhone)) {
+                                                      throw new Error("Invalid Nigerian phone number. Example: 08012345678");
+                                                          }
+const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const amountKobo = data.amountNaira * 100;
 
-                                                      if (providerError) {
-                                                            throw new Error("Could not load available products.");
-                                                                }
+        // Check customer's wallet balance
+            const { data: wallet, error: walletError } = await supabaseAdmin
+                  .from("wallets")
+                        .select("balance_kobo")
+                              .eq("user_id", context.userId)
+                                    .single();
 
-                                                                    const providerIds = (providers ?? []).map((provider) => provider.id);
+                                        if (walletError || !wallet || wallet.balance_kobo < amountKobo) {
+                                              throw new Error(`Insufficient wallet balance. You need ₦${data.amountNaira} to purchase.`);
+                                                  }
 
-                                                                        if (providerIds.length === 0) {
-                                                                              return { products: [], purchasesAvailable: false };
-                                                                                  }
+                                                      // Atomically debit wallet
+                                                          const purchaseRef = `Airtime_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+                                                              const { error: debitError } = await supabaseAdmin.rpc("wallet_post", {
+                                                                    _user_id: context.userId,
+                                                                          _category: "purchase",
+                                                                                _amount_kobo: -amountKobo,
+                                                                                      _reference: purchaseRef,
+                                                                                            _description: `Airtime: ₦${data.amountNaira} to ${data.phone} (${data.networkName})`,
+                                                                                                });
+if (debitError) {
+          throw new Error("Could not debit wallet. Please try again.");
+              }
 
-                                                                                      const { data, error } = await supabaseAdmin
-                                                                                            .from("vtu_products")
-                                                                                                  .select(
-                                                                                                          "id, service, network_name, plan_name, validity, selling_price_kobo, min_amount_kobo, max_amount_kobo"
-                                                                                                                )
-                                                                                                                      .in("provider_id", providerIds)
-                                                                                                                            .eq("active", true)
-                                                                                                                                  .eq("archived", false)
-                                                                                                                                        .order("selling_price_kobo", { ascending: true });
+                  // Call Arewabundle Topup API via secure Gateway
+                      const gatewayKey = process.env["LOVABLE_API_KEY"];
+                          const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
 
-                                                                                                                                            if (error) {
-                                                                                                                                                  throw new Error("Could not load available products.");
-                                                                                                                                                      }
+                              if (!gatewayKey || !connectionKey) {
+                                    // Refund if connector credentials are not linked
+                                          await supabaseAdmin.rpc("wallet_post", {
+                                                  _user_id: context.userId,
+                                                          _category: "refund",
+                                                                  _amount_kobo: amountKobo,
+                                                                          _reference: `refund:${purchaseRef}`,
+                                                                                  _description: `Refund: Provider credentials missing`,
+                                                                                        });
+                                                                                              throw new Error("VTU provider is currently offline. Your wallet has not been charged.");
+                                                                                                  }
+try {
+          const response = await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/topup", {
+                  method: "POST",
+                          signal: AbortSignal.timeout(30000),
+                                  headers: {
+                                            Authorization: `Bearer ${gatewayKey}`,
+                                                      "X-Connection-Api-Key": connectionKey,
+                                                                "Content-Type": "application/json",
+                                                                          Accept: "application/json",
+                                                                                  },
+                                                                                          body: JSON.stringify({
+                                                                                                    network: data.networkId,
+                                                                                                              phone: formattedPhone,
+                                                                                                                        amount: data.amountNaira,
+                                                                                                                                  "request-id": purchaseRef,
+                                                                                                                                          }),
+                                                                                                                                                });
+const responseBody = await response.json().catch(() => null);
 
-                                                                                                                                                          return {
-                                                                                                                                                                products: data ?? [],
-                                                                                                                                                                      purchasesAvailable: false,
-                                                                                                                                                                          };
-                                                                                                                                                                            });
+      if (!response.ok) {
+              // Confirmed provider failure: refund automatically
+                      await supabaseAdmin.rpc("wallet_post", {
+                                _user_id: context.userId,
+                                          _category: "refund",
+                                                    _amount_kobo: amountKobo,
+                                                              _reference: `refund:${purchaseRef}`,
+                                                                        _description: `Refund: Airtime topup failed (${response.status})`,
+                                                                                });
+                                                                                        const msg = (responseBody as { message?: string })?.message || "Provider could not deliver airtime.";
+                                                                                                throw new Error(msg);
+                                                                                                      }
+return {
+            success: true,
+                    message: `₦${data.amountNaira} airtime has been sent to ${data.phone}!`,
+                            reference: purchaseRef,
+                                  };
+                                      } catch (err) {
+                                            if (err instanceof Error && err.message.includes("Refund:")) {
+                                                    throw err;
+                                                          }
+                                                                // If ambiguous timeout or network cut, refund safely for testing
+                                                                      await supabaseAdmin.rpc("wallet_post", {
+                                                                              _user_id: context.userId,
+                                                                                      _category: "refund",
+                                                                                              _amount_kobo: amountKobo,
+                                                                                                      _reference: `refund:${purchaseRef}`,
+                                                                                                              _description: `Refund: Network error during topup`,
+                                                                                                                    });
+                                                                                                                          throw new Error(err instanceof Error ? err.message : "Airtime request could not be completed.");
+                                                                                                                              }
+                                                                                                                                });                                                            
