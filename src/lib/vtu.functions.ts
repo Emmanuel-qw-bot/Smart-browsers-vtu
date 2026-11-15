@@ -94,7 +94,7 @@ if (gatewayKey && connectionKey) {
                                                                                                                       });
                                                                                                                               ok = response.ok && hasAccessToken(await response.json());
                                                                                                                                       message = ok
-                                                                                                                                                ? "Account authentication passed. Ready for purchase test."
+                                                                                                                                                ? "Account authentication passed. Customer purchases remain disabled until the purchase flow is verified."
                                                                                                                                                           : `Account authentication did not pass (HTTP ${response.status}). Check credentials.`;
                                                                                                                                                                   if (ok) status = "authenticated";
                                                                                                                                                                         } catch {
