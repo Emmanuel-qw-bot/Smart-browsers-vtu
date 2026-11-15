@@ -17,7 +17,7 @@ type Product = {
                   }: {
                     service: "data" | "airtime";
                     }) {
-                      const [products, setProducts] = useState<Product[]>([]);
+                const [products, setProducts] = useState<Product[]>([]);
                         const [loading, setLoading] = useState(true);
                           const [error, setError] = useState("");
 

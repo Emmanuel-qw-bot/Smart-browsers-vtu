@@ -27,9 +27,14 @@ export function ProviderControl() {
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
     try { await action(); await qc.invalidateQueries({ queryKey: providerControlQuery.queryKey }); }
-    catch (error) { toast.error(error instanceof Error ? error.message : "Could not save settings."); }
-    finally { setBusy(false); }
-  }
+    catch (error) {
+        const message = error instanceof Error
+            ? error.message
+                : "Could not complete the action. Please try again.";
+
+                  setNotice(`Connection or settings check failed: ${message}`);
+                    toast.error(message);
+    }
   return <div className="space-y-6">
     <div className="flex items-start gap-3 border-l-4 border-gold bg-muted p-4 text-sm">
       <ShieldAlert className="size-5 shrink-0 text-primary" />
