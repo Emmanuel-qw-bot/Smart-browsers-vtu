@@ -230,42 +230,69 @@ if (debitError) {
                                                                                         });
                                                                                               throw new Error("VTU provider is currently offline. Your wallet has not been charged.");
                                                                                                   }
-try {
-          const response = await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/topup", {
-                  method: "POST",
-                          signal: AbortSignal.timeout(30000),
-                                  headers: {
-                                            Authorization: `Bearer ${gatewayKey}`,
-                                                      "X-Connection-Api-Key": connectionKey,
-                                                                "Content-Type": "application/json",
-                                                                          Accept: "application/json",
-                                                                                  },
-                                                                                          body: JSON.stringify({
-                                                                                                    network: data.networkId,
-                                                                                                              phone: formattedPhone,
-                                                                                                                        amount: data.amountNaira,
-                                                                                                                                  "request-id": purchaseRef,
-                                                                                                                                          }),
-                                                                                                                                                });
-const responseBody = await response.json().catch(() => null);
+        try {
+                  // 1. Get fresh AccessToken from Arewabundle
+                        const authRes = await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user", {
+                                method: "POST",
+                                        signal: AbortSignal.timeout(15000),
+                                                headers: {
+                                                          Authorization: `Bearer ${gatewayKey}`,
+                                                                    "X-Connection-Api-Key": connectionKey,
+                                                                              Accept: "application/json",
+                                                                                      },
+                                                                                            });
+                                                                                                  const authData = (await authRes.json().catch(() => null)) as { AccessToken?: string } | null;
+                                                                                                        const accessToken = authData?.AccessToken;
 
-      if (!response.ok) {
-              // Confirmed provider failure: refund automatically
-                      await supabaseAdmin.rpc("wallet_post", {
-                                _user_id: context.userId,
-                                          _category: "refund",
-                                                    _amount_kobo: amountKobo,
-                                                              _reference: `refund:${purchaseRef}`,
-                                                                        _description: `Refund: Airtime topup failed (${response.status})`,
-                                                                                });
-                                                                                        const msg = (responseBody as { message?: string })?.message || "Provider could not deliver airtime.";
-                                                                                                throw new Error(msg);
-                                                                                                      }
-return {
-            success: true,
-                    message: `₦${data.amountNaira} airtime has been sent to ${data.phone}!`,
-                            reference: purchaseRef,
-                                  };
+                                                                                                              if (!authRes.ok || !accessToken) {
+                                                                                                                      await supabaseAdmin.rpc("wallet_post", {
+                                                                                                                                _user_id: context.userId,
+                                                                                                                                          _category: "refund",
+                                                                                                                                                    _amount_kobo: amountKobo,
+                                                                                                                                                              _reference: `refund:${purchaseRef}`,
+                                                                                                                                                                        _description: "Refund: Could not obtain provider access token",
+                                                                                                                                                                                });
+                                                                                                                                                                                        throw new Error("Could not authenticate with provider. Your wallet has been refunded.");
+                                                                                                                                                                                              }
+
+                                                                                                                                                                                                    // 2. Dispatch topup with the required Authorization: Token header
+                                                                                                                                                                                                          const response = await fetch("https://api.arewabundle.com.ng/api/topup", {
+                                                                                                                                                                                                                  method: "POST",
+                                                                                                                                                                                                                          signal: AbortSignal.timeout(30000),
+                                                                                                                                                                                                                                  headers: {
+                                                                                                                                                                                                                                            Authorization: `Token ${accessToken}`,
+                                                                                                                                                                                                                                                      "Content-Type": "application/json",
+                                                                                                                                                                                                                                                                Accept: "application/json",
+                                                                                                                                                                                                                                                                        },
+                                                                                                                                                                                                                                                                                body: JSON.stringify({
+                                                                                                                                                                                                                                                                                          network: data.networkId,
+                                                                                                                                                                                                                                                                                                    phone: formattedPhone,
+                                                                                                                                                                                                                                                                                                              amount: data.amountNaira,
+                                                                                                                                                                                                                                                                                                                        "request-id": purchaseRef,
+                                                                                                                                                                                                                                                                                                                                }),
+                                                                                                                                                                                                                                                                                                                                      });
+
+                                                                                                                                                                                                                                                                                                                                            const responseBody = (await response.json().catch(() => null)) as { status?: string; message?: string } | null;
+                                                                                                                                                                                                                                                                                                                                                  const isSuccess = response.ok && responseBody?.status === "success";
+
+                                                                                                                                                                                                                                                                                                                                                        if (!isSuccess) {
+                                                                                                                                                                                                                                                                                                                                                                const msg = responseBody?.message || `Provider topup failed (${response.status})`;
+                                                                                                                                                                                                                                                                                                                                                                        await supabaseAdmin.rpc("wallet_post", {
+                                                                                                                                                                                                                                                                                                                                                                                  _user_id: context.userId,
+                                                                                                                                                                                                                                                                                                                                                                                            _category: "refund",
+                                                                                                                                                                                                                                                                                                                                                                                                      _amount_kobo: amountKobo,
+                                                                                                                                                                                                                                                                                                                                                                                                                _reference: `refund:${purchaseRef}`,
+                                                                                                                                                                                                                                                                                                                                                                                                                          _description: `Refund: ${msg}`,
+                                                                                                                                                                                                                                                                                                                                                                                                                                  });
+                                                                                                                                                                                                                                                                                                                                                                                                                                          throw new Error(msg);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                }
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                      return {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                              success: true,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                      message: `₦${data.amountNaira} airtime has been sent to ${data.phone}!`,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                              reference: purchaseRef,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    };
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                                       } catch (err) {
                                             if (err instanceof Error && err.message.includes("Refund:")) {
                                                     throw err;
