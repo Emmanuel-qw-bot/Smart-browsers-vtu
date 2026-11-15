@@ -4,6 +4,7 @@ import { PageScaffold } from "@/components/shared/PageScaffold";
 import { AccountPanel } from "@/components/customer/AccountPanel";
 import { BalanceCard, TransactionList, WalletPanel } from "@/components/customer/WalletPanel";
 import { CustomerProducts } from "@/components/customer/CustomerProducts";
+import { CustomerDataPlans } from "@/components/customer/CustomerDataPlans";
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: ({ params }) => {
     const item = findNav(customerNav, params.section);
@@ -41,14 +42,14 @@ function SectionPage() {
           }
 
           if (slug === "buy-data") {
-            return (
-                <PageScaffold item={item} live>
-                      <CustomerProducts service="data" />
-                          </PageScaffold>
-                            );
-                            }
+    return (
+      <PageScaffold item={item} live>
+        <CustomerDataPlans />
+      </PageScaffold>
+    );
+  }
 
-                            if (slug === "buy-airtime") {
+  if (slug === "buy-airtime") {
                               return (
                                   <PageScaffold item={item} live>
                                         <CustomerProducts service="airtime" />
