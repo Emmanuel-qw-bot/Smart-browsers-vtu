@@ -39,6 +39,7 @@ export function ProviderControl() {
                                             } finally {
                                                 setBusy(false);
                                                   }
+                                                }
   return <div className="space-y-6">
     <div className="flex items-start gap-3 border-l-4 border-gold bg-muted p-4 text-sm">
       <ShieldAlert className="size-5 shrink-0 text-primary" />
