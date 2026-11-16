@@ -188,9 +188,29 @@ function normalizePhone(raw: string): string {
                                                                                 if (!/^0\d{10}$/.test(formattedPhone)) {
                                                                                       throw new Error("Invalid Nigerian phone number. Example: 08012345678");
                                                                                           }
-                                                                                          
-}
+
+
 const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Fail closed: an authenticated provider connection alone never authorizes purchases.
+    const { data: serviceMapping, error: mappingError } = await supabaseAdmin
+      .from("vtu_products")
+      .select("id, provider_id, vtu_providers!inner(enabled, airtime_enabled, adapter)")
+      .eq("service", "airtime")
+      .eq("network_id", data.networkId)
+      .eq("active", true)
+      .eq("archived", false)
+      .maybeSingle();
+
+    const providerSettings = serviceMapping?.vtu_providers as
+      | { enabled: boolean; airtime_enabled: boolean; adapter: string }
+      | null;
+
+    if (mappingError || !serviceMapping || !providerSettings?.enabled ||
+        !providerSettings.airtime_enabled || providerSettings.adapter !== "arewabundle") {
+      throw new Error("Airtime purchases are not enabled for this network yet. Your wallet has not been charged.");
+    }
+
     const amountKobo = data.amountNaira * 100;
 
         // Check customer's wallet balance
