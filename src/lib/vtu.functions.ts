@@ -317,17 +317,14 @@ if (debitError) {
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     };
 
                                       } catch (err) {
+                                            // A timeout or lost connection does not prove the provider failed.
+                                            // Keep the debit for manual reconciliation; never auto-refund an ambiguous outcome.
                                             if (err instanceof Error && err.message.includes("Refund:")) {
-                                                    throw err;
-                                                          }
-                                                                // If ambiguous timeout or network cut, refund safely for testing
-                                                                      await supabaseAdmin.rpc("wallet_post", {
-                                                                              _user_id: context.userId,
-                                                                                      _category: "refund",
-                                                                                              _amount_kobo: amountKobo,
-                                                                                                      _reference: `refund:${purchaseRef}`,
-                                                                                                              _description: `Refund: Network error during topup`,
-                                                                                                                    });
-                                                                                                                          throw new Error(err instanceof Error ? err.message : "Airtime request could not be completed.");
-                                                                                                                              }
-                                                                                                                                });                                                            
+                                              throw err;
+                                            }
+                                            throw new Error(
+                                              "Your request may still be processing. Your wallet has not been automatically refunded. Contact support with reference " +
+                                                purchaseRef + " so the provider transaction can be checked."
+                                            );
+                                          }
+                                        });                                                            
