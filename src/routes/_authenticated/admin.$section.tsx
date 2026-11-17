@@ -6,6 +6,7 @@ import { WalletsTable, WelcomeBonusSettings } from "@/components/admin/WalletAdm
 import { ProviderControl, providerControlQuery } from "@/components/admin/ProviderControl";
 import { SupportSettings, supportSettingsQuery } from "@/components/admin/SupportSettings";
 import { WeekendGiveawaySettings, weekendGiveawayQuery } from "@/components/admin/WeekendGiveawaySettings";
+import { AnnouncementSettings } from "@/components/admin/AnnouncementSettings";
 
 export const Route = createFileRoute("/_authenticated/admin/$section")({
   loader: async ({ params, context }) => {
@@ -43,6 +44,7 @@ function AdminSection() {
   if (slug === "welcome-bonus") return <PageScaffold item={item} live><WelcomeBonusSettings /></PageScaffold>;
   if (slug === "support-settings") return <PageScaffold item={item} live><SupportSettings /></PageScaffold>;
   if (slug === "weekend-giveaways") return <PageScaffold item={item} live><WeekendGiveawaySettings /></PageScaffold>;
+  if (slug === "announcements") return <PageScaffold item={item} live><AnnouncementSettings /></PageScaffold>;
   if (slug !== "overview") return <PageScaffold item={item} />;
   return (
     <PageScaffold item={item}>
