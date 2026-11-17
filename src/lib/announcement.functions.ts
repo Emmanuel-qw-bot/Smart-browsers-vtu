@@ -17,7 +17,7 @@ export const getAnnouncements = createServerFn({ method: "GET" })
    return data;
  });
 export const saveAnnouncement = createServerFn({method:"POST"})
- .middleware([requireSupabaseAuth})
+ .middleware([requireSupabaseAuth])
  .inputValidator(input=>announcementInput.parse(input))
  .handler(async({data,context})=>{
    const {data:isAdmin,error:roleError}=await context.supabase.rpc("has_role",{_user_id:context.userId,_role:"admin"});
