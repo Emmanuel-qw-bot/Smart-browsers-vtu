@@ -5,10 +5,12 @@ import { AccountPanel } from "@/components/customer/AccountPanel";
 import { BalanceCard, TransactionList, WalletPanel } from "@/components/customer/WalletPanel";
 import { CustomerProducts } from "@/components/customer/CustomerProducts";
 import { CustomerDataPlans } from "@/components/customer/CustomerDataPlans";
+import { CustomerSupport, customerSupportQuery } from "@/components/customer/CustomerSupport";
 export const Route = createFileRoute("/_authenticated/app/$section")({
-  loader: ({ params }) => {
+  loader: async ({ params, context }) => {
     const item = findNav(customerNav, params.section);
     if (!item) throw notFound();
+    if (item.slug === "support") await context.queryClient.ensureQueryData(customerSupportQuery);
     return { slug: item.slug };
   },
   head: ({ loaderData }) => {
@@ -41,7 +43,11 @@ function SectionPage() {
           return <PageScaffold item={item} live><TransactionList limit={200} /></PageScaffold>;
           }
 
-          if (slug === "buy-data") {
+          if (slug === "support") {
+    return <PageScaffold item={item} live><CustomerSupport /></PageScaffold>;
+  }
+
+  if (slug === "buy-data") {
     return (
       <PageScaffold item={item} live>
         <CustomerDataPlans />
