@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      support_settings: {
+        Row: {
+          id: boolean
+          phone: string
+          whatsapp_number: string
+          support_email: string
+          whatsapp_group_url: string
+          support_hours: string
+          phone_enabled: boolean
+          whatsapp_enabled: boolean
+          email_enabled: boolean
+          group_enabled: boolean
+          floating_button_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: boolean
+          phone?: string
+          whatsapp_number?: string
+          support_email?: string
+          whatsapp_group_url?: string
+          support_hours?: string
+          phone_enabled?: boolean
+          whatsapp_enabled?: boolean
+          email_enabled?: boolean
+          group_enabled?: boolean
+          floating_button_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: boolean
+          phone?: string
+          whatsapp_number?: string
+          support_email?: string
+          whatsapp_group_url?: string
+          support_hours?: string
+          phone_enabled?: boolean
+          whatsapp_enabled?: boolean
+          email_enabled?: boolean
+          group_enabled?: boolean
+          floating_button_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
