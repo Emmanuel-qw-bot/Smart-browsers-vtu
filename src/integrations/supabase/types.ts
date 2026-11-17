@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      site_announcements: {
+        Row: { id: string; title: string; message: string; published: boolean; starts_at: string | null; ends_at: string | null; created_by: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; title: string; message: string; published?: boolean; starts_at?: string | null; ends_at?: string | null; created_by?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; title?: string; message?: string; published?: boolean; starts_at?: string | null; ends_at?: string | null; created_by?: string | null; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
       support_settings: {
         Row: {
           id: boolean
