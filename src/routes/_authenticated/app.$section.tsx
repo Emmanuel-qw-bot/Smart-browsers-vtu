@@ -6,11 +6,13 @@ import { BalanceCard, TransactionList, WalletPanel } from "@/components/customer
 import { CustomerProducts } from "@/components/customer/CustomerProducts";
 import { CustomerDataPlans } from "@/components/customer/CustomerDataPlans";
 import { CustomerSupport, customerSupportQuery } from "@/components/customer/CustomerSupport";
+import { CustomerWeekendRush, customerWeekendRushQuery } from "@/components/customer/CustomerWeekendRush";
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: async ({ params, context }) => {
     const item = findNav(customerNav, params.section);
     if (!item) throw notFound();
     if (item.slug === "support") await context.queryClient.ensureQueryData(customerSupportQuery);
+    if (item.slug === "weekend-rush") await context.queryClient.ensureQueryData(customerWeekendRushQuery);
     return { slug: item.slug };
   },
   head: ({ loaderData }) => {
@@ -42,6 +44,10 @@ function SectionPage() {
         if (slug === "transactions") {
           return <PageScaffold item={item} live><TransactionList limit={200} /></PageScaffold>;
           }
+
+          if (slug === "weekend-rush") {
+    return <PageScaffold item={item} live><CustomerWeekendRush /></PageScaffold>;
+  }
 
           if (slug === "support") {
     return <PageScaffold item={item} live><CustomerSupport /></PageScaffold>;
