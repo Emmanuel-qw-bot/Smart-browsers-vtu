@@ -328,3 +328,149 @@ if (debitError) {
                                             );
                                           }
                                         });                                                            
+
+/**
+ * Arewabundle data purchase.
+ * Fail-closed: both provider switches must be enabled by an administrator.
+ * Unknown/timeout outcomes are deliberately NOT refunded automatically.
+ */
+export const purchaseData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    productId: z.string().uuid(),
+    phone: z.string().min(10).max(15),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const phone = normalizePhone(data.phone);
+    if (!/^0\\d{10}$/.test(phone)) {
+      throw new Error("Enter a valid Nigerian phone number, for example 08012345678.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: product, error: productError } = await supabaseAdmin
+      .from("vtu_products")
+      .select("id, provider_id, service, network_id, network_name, plan_name, data_plan_id, selling_price_kobo, vtu_providers!inner(adapter, enabled, data_enabled)")
+      .eq("id", data.productId)
+      .eq("service", "data")
+      .eq("active", true)
+      .eq("archived", false)
+      .maybeSingle();
+
+    const provider = product?.vtu_providers as
+      | { adapter: string; enabled: boolean; data_enabled: boolean }
+      | null;
+
+    if (productError || !product || !provider ||
+        provider.adapter !== "arewabundle" || !provider.enabled ||
+        !provider.data_enabled || !product.data_plan_id ||
+        !product.selling_price_kobo) {
+      throw new Error("Data purchases are not enabled yet. Your wallet has not been charged.");
+    }
+
+    // A unique reference prevents accidental duplicate ledger postings.
+    const reference = `DATA-${crypto.randomUUID()}`;
+    const price = Number(product.selling_price_kobo);
+    const { error: debitError } = await supabaseAdmin.rpc("wallet_post", {
+      _user_id: context.userId,
+      _category: "purchase",
+      _amount_kobo: -price,
+      _reference: reference,
+      _description: `Data: ${product.plan_name} to ${phone} (${product.network_name})`,
+    });
+    if (debitError) {
+      throw new Error("Wallet debit failed. No data request was sent.");
+    }
+
+    const gatewayKey = process.env["LOVABLE_API_KEY"];
+    const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
+    if (!gatewayKey || !connectionKey) {
+      await supabaseAdmin.rpc("wallet_post", {
+        _user_id: context.userId,
+        _category: "refund",
+        _amount_kobo: price,
+        _reference: `refund:${reference}`,
+        _description: "Refund: Arewabundle credentials unavailable before request",
+      });
+      throw new Error("Provider connection is unavailable. The wallet debit was reversed.");
+    }
+
+    try {
+      const authResponse = await fetch(
+        "https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user",
+        {
+          method: "POST",
+          redirect: "error",
+          signal: AbortSignal.timeout(15000),
+          headers: {
+            Authorization: `Bearer ${gatewayKey}`,
+            "X-Connection-Api-Key": connectionKey,
+            Accept: "application/json",
+          },
+        },
+      );
+      const authBody = await authResponse.json().catch(() => null);
+      if (!authResponse.ok || !hasAccessToken(authBody)) {
+        await supabaseAdmin.rpc("wallet_post", {
+          _user_id: context.userId,
+          _category: "refund",
+          _amount_kobo: price,
+          _reference: `refund:${reference}`,
+          _description: "Refund: provider authentication failed before data request",
+        });
+        throw new Error("Provider authentication failed. The wallet debit was reversed.");
+      }
+
+      const token = (authBody as { AccessToken: string }).AccessToken;
+      const response = await fetch("https://api.arewabundle.com.ng/api/data", {
+        method: "POST",
+        redirect: "error",
+        signal: AbortSignal.timeout(25000),
+        headers: {
+          Authorization: `Token ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          network: product.network_id,
+          phone,
+          data_plan: product.data_plan_id,
+          bypass: false,
+          "request-id": reference,
+        }),
+      });
+      const body = await response.json().catch(() => null) as
+        | { status?: string; message?: string; response?: string }
+        | null;
+
+      if (response.ok && body?.status === "success") {
+        return {
+          success: true,
+          status: "success" as const,
+          reference,
+          message: `${product.plan_name} request was accepted for ${phone}. Please confirm delivery before retrying.`,
+        };
+      }
+
+      if (body?.status === "fail") {
+        await supabaseAdmin.rpc("wallet_post", {
+          _user_id: context.userId,
+          _category: "refund",
+          _amount_kobo: price,
+          _reference: `refund:${reference}`,
+          _description: `Refund: Arewabundle reported failure for ${reference}`,
+        });
+        throw new Error(body.message || "Arewabundle reported that the data purchase failed. Your wallet debit was reversed.");
+      }
+
+      // Any undocumented status, non-JSON response, or HTTP error is ambiguous.
+      // Leave the debit in the ledger for admin reconciliation; never guess/refund.
+      throw new Error(`Purchase status needs review. Do not retry yet. Reference: ${reference}`);
+    } catch (error) {
+      if (error instanceof Error &&
+          (error.message.includes("wallet debit was reversed") ||
+           error.message.includes("status needs review"))) {
+        throw error;
+      }
+      throw new Error(`The provider response is uncertain. Do not retry yet. Contact support with reference: ${reference}`);
+    }
+  });
