@@ -9,7 +9,14 @@ export const getWeekendRushSlots = createServerFn({ method: "GET" })
     if (settingsError) throw new Error("Could not load giveaway slots.");
     const campaignKey = settings.opens_at
       ? new Date(settings.opens_at).toISOString().replace(/[-:TZ.]/g, "").slice(0, 14)
-      : (() => { const d = new Date(); return `${d.getUTCFullYear()}W${String(Math.ceil((((d.getTime()-Date.UTC(d.getUTCFullYear(),0,1))/86400000)+new Date(Date.UTC(d.getUTCFullYear(),0,1)).getUTCDay()+1)/7)).padStart(2,"0")}`; })();
+      : (() => {
+          const d = new Date();
+          const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+          day.setUTCDate(day.getUTCDate() + 4 - (day.getUTCDay() || 7));
+          const yearStart = new Date(Date.UTC(day.getUTCFullYear(), 0, 1));
+          const week = Math.ceil((((day.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+          return String(day.getUTCFullYear()) + String(week).padStart(2, "0");
+        })();
     const { data, error } = await context.supabase.from("weekend_giveaway_slots").select("slot_number,status").eq("campaign_key", campaignKey).order("slot_number");
     if (error) throw new Error("Could not load giveaway slots.");
     return Array.from({ length: settings.maximum_winners }, (_, i) => data?.find(s => s.slot_number === i + 1) ?? { slot_number: i + 1, status: "available" as const });
