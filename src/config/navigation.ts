@@ -43,6 +43,7 @@ export const adminNav: NavItem[] = [
   { slug: "referral-settings", label: "Referral Settings", icon: Share2, description: "Referral rewards and eligibility rules." },
   { slug: "loyalty", label: "Loyalty Programme", icon: Crown, description: "Points, tiers and redemption rules." },
   { slug: "weekend-giveaways", label: "Weekend Giveaways", icon: PartyPopper, description: "Schedule and manage Weekend Rush giveaways." },
+  { slug: "announcements", label: "Announcements", icon: Megaphone, description: "Publish messages on customer dashboards." },
   { slug: "promotions", label: "Special Promotions", icon: Sparkles, description: "Create and schedule promotional campaigns." },
   { slug: "security-logs", label: "Security and Activity Logs", icon: ShieldCheck, description: "Admin actions, sign-ins and security events." },
   { slug: "reports", label: "Reports and Profit Analysis", icon: LineChart, description: "Revenue, cost and profit reporting." },
