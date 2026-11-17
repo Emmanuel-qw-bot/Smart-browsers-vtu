@@ -73,7 +73,7 @@ type Product = {
       toast.error("Select a data plan first.");
       return;
     }
-    if (dataRecipient.replace(/\\D/g, "").length < 10) {
+    if (dataRecipient.replace(/\D/g, "").length < 10) {
       toast.error("Enter a valid Nigerian phone number.");
       return;
     }
