@@ -7,12 +7,14 @@ import { CustomerProducts } from "@/components/customer/CustomerProducts";
 import { CustomerDataPlans } from "@/components/customer/CustomerDataPlans";
 import { CustomerSupport, customerSupportQuery } from "@/components/customer/CustomerSupport";
 import { CustomerWeekendRush, customerWeekendRushQuery } from "@/components/customer/CustomerWeekendRush";
+import { CustomerAnnouncements, customerAnnouncementsQuery } from "@/components/customer/CustomerAnnouncements";
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: async ({ params, context }) => {
     const item = findNav(customerNav, params.section);
     if (!item) throw notFound();
     if (item.slug === "support") await context.queryClient.ensureQueryData(customerSupportQuery);
     if (item.slug === "weekend-rush") await context.queryClient.ensureQueryData(customerWeekendRushQuery);
+    if (item.slug === "dashboard") await context.queryClient.ensureQueryData(customerAnnouncementsQuery);
     return { slug: item.slug };
   },
   head: ({ loaderData }) => {
@@ -75,6 +77,7 @@ function SectionPage() {
   const quick = customerNav.filter((n) => ["buy-data", "buy-airtime", "airtime-to-cash", "wallet", "rewards", "referrals", "weekend-rush", "support"].includes(n.slug));
   return (
     <PageScaffold item={item} live>
+      <CustomerAnnouncements />
       <BalanceCard />
       <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
         {quick.map((q) => (
