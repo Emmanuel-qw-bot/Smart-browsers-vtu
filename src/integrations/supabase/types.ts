@@ -231,6 +231,24 @@ export type Database = {
           },
         ]
       }
+      weekend_giveaway_slots: {
+        Row: { id: string; campaign_key: string; slot_number: number; user_id: string | null; status: "available" | "claimed"; claimed_at: string | null }
+        Insert: { id?: string; campaign_key: string; slot_number: number; user_id?: string | null; status?: "available" | "claimed"; claimed_at?: string | null }
+        Update: { id?: string; campaign_key?: string; slot_number?: number; user_id?: string | null; status?: "available" | "claimed"; claimed_at?: string | null }
+        Relationships: []
+      }
+      weekend_giveaway_eligibility: {
+        Row: { campaign_key: string; user_id: string; successful_data_purchases: number; verified_at: string }
+        Insert: { campaign_key: string; user_id: string; successful_data_purchases?: number; verified_at?: string }
+        Update: { campaign_key?: string; user_id?: string; successful_data_purchases?: number; verified_at?: string }
+        Relationships: []
+      }
+      weekend_giveaway_claim_details: {
+        Row: { id: string; campaign_key: string; user_id: string; slot_id: string; network: string | null; recipient_phone: string | null; status: string; created_at: string; updated_at: string }
+        Insert: { id?: string; campaign_key: string; user_id: string; slot_id: string; network?: string | null; recipient_phone?: string | null; status?: string; created_at?: string; updated_at?: string }
+        Update: { id?: string; campaign_key?: string; user_id?: string; slot_id?: string; network?: string | null; recipient_phone?: string | null; status?: string; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
       weekend_giveaway_settings: {
         Row: { id: boolean; enabled: boolean; announcement: string; reward_data_mb: number; minimum_data_purchases: number; maximum_winners: number; opens_at: string | null; closes_at: string | null; updated_at: string; updated_by: string | null }
         Insert: { id?: boolean; enabled?: boolean; announcement?: string; reward_data_mb?: number; minimum_data_purchases?: number; maximum_winners?: number; opens_at?: string | null; closes_at?: string | null; updated_at?: string; updated_by?: string | null }
@@ -384,6 +402,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      weekend_rush_claim_slot: { Args: Record<PropertyKey, never>; Returns: Json }
+      weekend_rush_save_recipient: { Args: { _network: string; _phone: string }; Returns: Json }
       generate_invite_code: { Args: never; Returns: string }
       has_role: {
         Args: {
