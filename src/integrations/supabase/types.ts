@@ -231,6 +231,18 @@ export type Database = {
           },
         ]
       }
+      weekend_giveaway_settings: {
+        Row: { id: boolean; enabled: boolean; announcement: string; reward_data_mb: number; minimum_data_purchases: number; maximum_winners: number; opens_at: string | null; closes_at: string | null; updated_at: string; updated_by: string | null }
+        Insert: { id?: boolean; enabled?: boolean; announcement?: string; reward_data_mb?: number; minimum_data_purchases?: number; maximum_winners?: number; opens_at?: string | null; closes_at?: string | null; updated_at?: string; updated_by?: string | null }
+        Update: { id?: boolean; enabled?: boolean; announcement?: string; reward_data_mb?: number; minimum_data_purchases?: number; maximum_winners?: number; opens_at?: string | null; closes_at?: string | null; updated_at?: string; updated_by?: string | null }
+        Relationships: []
+      }
+      weekend_giveaway_applications: {
+        Row: { id: string; campaign_key: string; user_id: string; status: "submitted" | "selected" | "not_selected" | "cancelled"; applied_at: string }
+        Insert: { id?: string; campaign_key: string; user_id: string; status?: "submitted" | "selected" | "not_selected" | "cancelled"; applied_at?: string }
+        Update: { id?: string; campaign_key?: string; user_id?: string; status?: "submitted" | "selected" | "not_selected" | "cancelled"; applied_at?: string }
+        Relationships: []
+      }
       vtu_providers: {
         Row: {
           adapter: string
