@@ -4,12 +4,14 @@ import { PageScaffold, EmptyPanel } from "@/components/shared/PageScaffold";
 import { CustomersTable } from "@/components/admin/CustomersTable";
 import { WalletsTable, WelcomeBonusSettings } from "@/components/admin/WalletAdmin";
 import { ProviderControl, providerControlQuery } from "@/components/admin/ProviderControl";
+import { SupportSettings, supportSettingsQuery } from "@/components/admin/SupportSettings";
 
 export const Route = createFileRoute("/_authenticated/admin/$section")({
   loader: async ({ params, context }) => {
     const item = findNav(adminNav, params.section);
     if (!item) throw notFound();
     if (params.section === "vtu-providers" || params.section === "products-pricing") await context.queryClient.ensureQueryData(providerControlQuery);
+    if (params.section === "support-settings") await context.queryClient.ensureQueryData(supportSettingsQuery);
     return { slug: item.slug };
   },
   head: ({ loaderData }) => {
@@ -37,6 +39,7 @@ function AdminSection() {
   if (slug === "customers") return <PageScaffold item={item} live><CustomersTable /></PageScaffold>;
   if (slug === "wallet-management" || slug === "transactions") return <PageScaffold item={item} live><WalletsTable /></PageScaffold>;
   if (slug === "welcome-bonus") return <PageScaffold item={item} live><WelcomeBonusSettings /></PageScaffold>;
+  if (slug === "support-settings") return <PageScaffold item={item} live><SupportSettings /></PageScaffold>;
   if (slug !== "overview") return <PageScaffold item={item} />;
   return (
     <PageScaffold item={item}>
