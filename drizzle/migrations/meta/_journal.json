@@ -29,6 +29,13 @@
       "when": 1794063836040,
       "tag": "0003_vtu_provider_configuration",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794912000000,
+      "tag": "0004_support_settings",
+      "breakpoints": true
     }
   ]
 }
