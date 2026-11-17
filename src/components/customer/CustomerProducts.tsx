@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getCustomerProducts, purchaseAirtime } from "@/lib/vtu.functions";
+import { getCustomerProducts, purchaseAirtime, purchaseData } from "@/lib/vtu.functions";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 type Product = {
@@ -67,7 +67,38 @@ type Product = {
                               { id: 4, name: "9mobile", color: "bg-lime-600 text-white border-lime-700" },
                                 ];
 
-                                  async function handleBuy(e: React.FormEvent) {
+                                  async function handleDataBuy(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedDataPlan) {
+      toast.error("Select a data plan first.");
+      return;
+    }
+    if (dataRecipient.replace(/\\D/g, "").length < 10) {
+      toast.error("Enter a valid Nigerian phone number.");
+      return;
+    }
+    if (!purchasesAvailable) {
+      toast.error("Data purchases are still being tested. Your wallet has not been charged.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const result = await purchaseData({
+        data: { productId: selectedDataPlan.id, phone: dataRecipient.trim() },
+      });
+      toast.success(result.message);
+      setDataRecipient("");
+      setSelectedDataPlan(null);
+      await qc.invalidateQueries({ queryKey: ["wallet"] });
+      await qc.invalidateQueries({ queryKey: ["admin", "ledger"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Data purchase needs review.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleBuy(e: React.FormEvent) {
                                       e.preventDefault();
                                           const numAmount = parseInt(amount, 10);
                                               if (!numAmount || numAmount < 50 || numAmount > 10000) {
@@ -227,6 +258,26 @@ type Product = {
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     ))}
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             </div>
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   )}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      </div>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+      {service === "data" && (
+        <form onSubmit={handleDataBuy} className="rounded-2xl border bg-card p-5 shadow-soft space-y-4">
+          <div>
+            <p className="font-semibold">Your selected data plan</p>
+            <p className="text-sm text-muted-foreground">
+              {selectedDataPlan ? `${selectedDataPlan.network_name} • ${selectedDataPlan.plan_name} • ${formatPrice(selectedDataPlan.selling_price_kobo)}` : "Choose a plan above to continue."}
+            </p>
+          </div>
+          <div>
+            <label htmlFor="data-recipient-phone" className="text-xs font-semibold uppercase text-muted-foreground">Recipient phone number</label>
+            <input id="data-recipient-phone" value={dataRecipient} onChange={(e) => setDataRecipient(e.target.value)} inputMode="tel" autoComplete="tel" placeholder="08012345678" className="mt-2 w-full rounded-xl border bg-background px-3 py-3" />
+            <p className="mt-1 text-xs text-muted-foreground">Check the number carefully before submitting. Data sent to a wrong number may not be recoverable.</p>
+          </div>
+          <button type="submit" disabled={!purchasesAvailable || !selectedDataPlan || submitting} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
+            {submitting ? "Processing..." : purchasesAvailable ? "Buy data" : "Data purchases coming soon"}
+          </button>
+          {!purchasesAvailable && <p className="text-xs text-muted-foreground">Testing mode: selecting a plan will not charge your wallet.</p>}
+        </form>
+      )}
+</div>
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         );
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         }
