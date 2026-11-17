@@ -5,6 +5,7 @@ import { Footer } from "@/components/shared/Footer";
 import { customerNav, customerBottomNav } from "@/config/navigation";
 import { LogoMark } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
+import { FloatingSupportButton } from "@/components/customer/FloatingSupportButton";
 
 export function CustomerShell({ children }: { children: ReactNode }) {
   const { section } = useParams({ strict: false }) as { section?: string };
@@ -64,6 +65,8 @@ export function CustomerShell({ children }: { children: ReactNode }) {
           <Menu className="size-5" /> More
         </button>
       </nav>
+
+      <FloatingSupportButton />
 
       {open && (
         <div className="fixed inset-0 z-40 bg-charcoal/50 lg:hidden" onClick={() => setOpen(false)}>
