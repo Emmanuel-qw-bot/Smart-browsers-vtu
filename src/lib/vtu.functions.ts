@@ -1,7 +1,30 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { hasAccessToken, productSchema, providerSchema } from "./vtu-schemas";
+
+const credentialsKey = () => {
+  const raw = process.env["VTU_CREDENTIALS_ENCRYPTION_KEY"];
+  if (!raw || !/^[a-fA-F0-9]{64}$/.test(raw)) {
+    throw new Error("Provider credential encryption key is not configured (64-character hex key).");
+  }
+  return Buffer.from(raw, "hex");
+};
+function encryptProviderSecret(value: string): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", credentialsKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  return [iv.toString("hex"), cipher.getAuthTag().toString("hex"), encrypted.toString("hex")].join(":");
+}
+function decryptProviderSecret(value: string | null): string | null {
+  if (!value) return null;
+  const [ivHex, tagHex, encryptedHex] = value.split(":");
+  if (!ivHex || !tagHex || !encryptedHex) throw new Error("Stored provider credential format is invalid.");
+  const decipher = createDecipheriv("aes-256-gcm", credentialsKey(), Buffer.from(ivHex, "hex"));
+  decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+  return Buffer.concat([decipher.update(Buffer.from(encryptedHex, "hex")), decipher.final()]).toString("utf8");
+}
 
 export const getProviderControl = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -62,7 +85,40 @@ const result = await context.supabase.from("vtu_products").update({ archived: tr
         return { removed: true };
           });
 
-          export const testProviderConnection = createServerFn({ method: "POST" })
+          export const saveProviderCredentials = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    id: z.string().uuid(),
+    apiToken: z.string().trim().min(1).max(5000).optional(),
+    transactionPin: z.string().trim().min(1).max(100).optional(),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: admin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    if (!admin) throw new Error("Administrator permission required.");
+    if (!data.apiToken && !data.transactionPin) throw new Error("Enter at least one credential to save.");
+    const update: Record<string, string> = {};
+    if (data.apiToken) update.api_token_encrypted = encryptProviderSecret(data.apiToken);
+    if (data.transactionPin) update.transaction_pin_encrypted = encryptProviderSecret(data.transactionPin);
+    const result = await context.supabase.from("vtu_providers").update(update).eq("id", data.id).select("id").single();
+    if (result.error) throw new Error("Could not save encrypted provider credentials.");
+    return { saved: true };
+  });
+
+export const deleteProvider = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: admin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    if (!admin) throw new Error("Administrator permission required.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const products = await supabaseAdmin.from("vtu_products").delete().eq("provider_id", data.id);
+    if (products.error) throw new Error("Could not remove provider mappings.");
+    const provider = await supabaseAdmin.from("vtu_providers").delete().eq("id", data.id).select("id").single();
+    if (provider.error) throw new Error("Could not delete provider.");
+    return { deleted: true };
+  });
+
+export const testProviderConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
@@ -223,14 +279,14 @@ function normalizePhone(raw: string): string {
 
     const { data: mappings, error: mappingError } = await supabaseAdmin
       .from("vtu_products")
-      .select("id, provider_id, network_id, network_name, min_amount_kobo, max_amount_kobo, vtu_providers!inner(enabled, airtime_enabled, adapter)")
+      .select("id, provider_id, network_id, network_name, min_amount_kobo, max_amount_kobo, vtu_providers!inner(enabled, airtime_enabled, adapter, api_token_encrypted, transaction_pin_encrypted)")
       .eq("service", "airtime")
       .ilike("network_name", data.networkName)
       .eq("active", true)
       .eq("archived", false);
 
     const eligible = (mappings ?? []).filter((row) => {
-      const p = row.vtu_providers as { enabled: boolean; airtime_enabled: boolean; adapter: string } | null;
+      const p = row.vtu_providers as { enabled: boolean; airtime_enabled: boolean; adapter: string; api_token_encrypted: string | null; transaction_pin_encrypted: string | null } | null;
       return p?.enabled && p.airtime_enabled && (p.adapter === "bigisub" || p.adapter === "arewabundle");
     });
     const serviceMapping = eligible.find((row) => (row.vtu_providers as { adapter: string }).adapter === "bigisub")
