@@ -99,7 +99,7 @@ const result = await context.supabase.from("vtu_products").update({ archived: tr
     const update: Record<string, string> = {};
     if (data.apiToken) update.api_token_encrypted = encryptProviderSecret(data.apiToken);
     if (data.transactionPin) update.transaction_pin_encrypted = encryptProviderSecret(data.transactionPin);
-    const result = await context.supabase.from("vtu_providers").update(update).eq("id", data.id).select("id").single();
+    const result = await (context.supabase.from("vtu_providers") as any).update(update).eq("id", data.id).select("id").single();
     if (result.error) throw new Error("Could not save encrypted provider credentials.");
     return { saved: true };
   });
@@ -130,7 +130,7 @@ export const testProviderConnection = createServerFn({ method: "POST" })
 
     const { data: provider } = await context.supabase
       .from("vtu_providers")
-      .select("adapter")
+      .select("*")
       .eq("id", data.id)
       .single();
 
@@ -279,7 +279,7 @@ function normalizePhone(raw: string): string {
 
     const { data: mappings, error: mappingError } = await supabaseAdmin
       .from("vtu_products")
-      .select("id, provider_id, network_id, network_name, min_amount_kobo, max_amount_kobo, vtu_providers!inner(enabled, airtime_enabled, adapter, api_token_encrypted, transaction_pin_encrypted)")
+      .select("id, provider_id, network_id, network_name, min_amount_kobo, max_amount_kobo, vtu_providers!inner(enabled, airtime_enabled, adapter)")
       .eq("service", "airtime")
       .ilike("network_name", data.networkName)
       .eq("active", true)
@@ -293,6 +293,12 @@ function normalizePhone(raw: string): string {
       ?? eligible.find((row) => (row.vtu_providers as { adapter: string }).adapter === "arewabundle");
     const providerSettings = serviceMapping?.vtu_providers as
       | { enabled: boolean; airtime_enabled: boolean; adapter: string }
+      | null;
+    const providerCredentials = providerSettings?.adapter === "bigisub" && serviceMapping
+      ? await supabaseAdmin.from("vtu_providers").select("*").eq("id", serviceMapping.provider_id).single()
+      : null;
+    const bigisubSecrets = providerCredentials?.data as unknown as
+      | { api_token_encrypted: string | null; transaction_pin_encrypted: string | null }
       | null;
 
     if (mappingError || !serviceMapping || !providerSettings) {
@@ -326,8 +332,8 @@ function normalizePhone(raw: string): string {
     };
 
     if (providerSettings.adapter === "bigisub") {
-      const token = process.env["BIGISUB_API_TOKEN"];
-      const pin = process.env["BIGISUB_TRANSACTION_PIN"];
+      const token = decryptProviderSecret(bigisubSecrets?.api_token_encrypted ?? null);
+      const pin = decryptProviderSecret(bigisubSecrets?.transaction_pin_encrypted ?? null);
       if (!token || !pin) {
         await refund("Bigisub credentials missing before request");
         throw new Error("Bigisub is not configured. Wallet debit was reversed.");
