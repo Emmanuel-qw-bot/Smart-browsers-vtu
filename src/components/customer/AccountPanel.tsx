@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Clock, Copy, LogOut } from "lucide-react";
+import { CheckCircle2, Clock, Copy, LogOut, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -27,6 +27,7 @@ export function AccountPanel() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [edit, setEdit] = useState({ fullName: "", phone: "" });
   const [saving, setSaving] = useState(false);
@@ -38,6 +39,8 @@ export function AccountPanel() {
     (async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
+      const { data: hasAdmin, error: roleError } = await supabase.rpc("has_role", { _user_id: u.user.id, _role: "admin" });
+      if (!roleError && hasAdmin === true) setIsAdmin(true);
       const { data, error } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
       if (error || !data) { setLoadError("We couldn't load your profile."); return; }
       setProfile(data);
@@ -102,6 +105,26 @@ export function AccountPanel() {
         </div>
         <p className="mt-2 text-xs opacity-75">This code is permanently yours. Share it with friends when they sign up.</p>
       </section>
+
+      {isAdmin && (
+        <section className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-5 shadow-soft md:col-span-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Shield className="size-5 text-primary" />
+                <h3 className="font-display text-lg font-bold text-foreground">Administrator Privileges</h3>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                You are signed in as an administrator. Manage wallets, products, and provider settings.
+              </p>
+            </div>
+            <Link to="/admin/$section" params={{ section: "overview" }}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow transition hover:opacity-90">
+              Open Admin Dashboard
+            </Link>
+          </div>
+        </section>
+      )}
 
       <section className="space-y-3 rounded-2xl border bg-card p-5 shadow-soft">
         <h3 className="font-display text-lg font-semibold">Verification</h3>
