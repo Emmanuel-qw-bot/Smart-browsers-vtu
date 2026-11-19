@@ -3,7 +3,7 @@ import { z } from "zod";
 const amount = z.number().int().positive().max(10_000_000);
 export const providerSchema = z.object({
   name: z.string().trim().min(2).max(80),
-  adapter: z.enum(["arewabundle", "unimplemented"]),
+  adapter: z.enum(["arewabundle", "bigisub", "unimplemented"]),
 });
 export const productSchema = z.object({
   id: z.string().uuid().optional(),
