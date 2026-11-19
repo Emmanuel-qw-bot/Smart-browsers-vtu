@@ -218,7 +218,7 @@ function normalizePhone(raw: string): string {
   }).parse(input))
   .handler(async ({ data, context }) => {
     const phone = normalizePhone(data.phone);
-    if (!/^0\\d{10}$/.test(phone)) throw new Error("Invalid Nigerian phone number. Example: 08012345678");
+    if (!/^0\d{10}$/.test(phone)) throw new Error("Invalid Nigerian phone number. Example: 08012345678");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: mappings, error: mappingError } = await supabaseAdmin
