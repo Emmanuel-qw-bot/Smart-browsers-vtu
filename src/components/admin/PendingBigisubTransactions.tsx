@@ -12,6 +12,7 @@ export function PendingBigisubTransactions() {
   const qc = useQueryClient();
   const [oldReference, setOldReference] = useState("");
   const [providerIds, setProviderIds] = useState<Record<string, string>>({});
+  const [verifiedMatches, setVerifiedMatches] = useState<Record<string, boolean>>({});
   const pendingQuery = useQuery({
     queryKey: ["admin", "bigisub-pending-airtime"],
     queryFn: () => getPendingBigisubAirtime(),
@@ -38,7 +39,7 @@ export function PendingBigisubTransactions() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save ID."),
   });
   const requeryMutation = useMutation({
-    mutationFn: (reference: string) => requeryBigisubAirtime({ data: { reference } }),
+    mutationFn: (reference: string) => requeryBigisubAirtime({ data: { reference, confirmMatch: true } }),
     onSuccess: async (result) => {
       toast.success(`Status: ${result.status}. ${result.message}`);
       await qc.invalidateQueries({ queryKey: ["admin", "bigisub-pending-airtime"] });
@@ -85,7 +86,11 @@ export function PendingBigisubTransactions() {
               </form>
             )}
             {row.provider_message && <p className="text-xs text-muted-foreground">{row.provider_message}</p>}
-            <button disabled={!row.provider_transaction_id || requeryMutation.isPending} onClick={() => requeryMutation.mutate(row.reference)} className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+            <label className="flex items-start gap-2 text-xs">
+              <input type="checkbox" checked={verifiedMatches[row.reference] ?? false} onChange={(e) => setVerifiedMatches((prev) => ({ ...prev, [row.reference]: e.target.checked }))} />
+              <span>I have verified this provider transaction matches the recipient and amount, with a responsible adult's help.</span>
+            </label>
+            <button disabled={!row.provider_transaction_id || !verifiedMatches[row.reference] || requeryMutation.isPending} onClick={() => requeryMutation.mutate(row.reference)} className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
               {requeryMutation.isPending ? "Checking…" : "Recheck status"}
             </button>
             <p className="text-xs text-muted-foreground">Status rechecks are rate-limited by Bigisub. Wait at least 30 seconds between checks.</p>
