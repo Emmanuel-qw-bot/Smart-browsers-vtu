@@ -94,7 +94,7 @@ if (gatewayKey && connectionKey) {
                                                                                                                       });
                                                                                                                               ok = response.ok && hasAccessToken(await response.json());
                                                                                                                                       message = ok
-                                                                                                                                                ? "Account authentication passed. Customer purchases remain disabled until the purchase flow is verified."
+                                                                                                                                                ? "Account authentication passed. Arewabundle data purchases are enabled for testing."
                                                                                                                                                           : `Account authentication did not pass (HTTP ${response.status}). Check credentials.`;
                                                                                                                                                                   if (ok) status = "authenticated";
                                                                                                                                                                         } catch {
@@ -108,7 +108,7 @@ const now = new Date().toISOString();
                         connection_status: status,
                                 last_checked_at: now,
                                         last_error: ok ? null : message,
-                                                ...(ok ? { last_authenticated_at: now } : {}),
+                                                ...(ok ? { last_authenticated_at: now, enabled: true, data_enabled: true } : {}),
                                                       })
                                                             .eq("id", data.id);
 
