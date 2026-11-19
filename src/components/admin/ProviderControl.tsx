@@ -91,10 +91,21 @@ function MappingForm({ provider, service, product, busy, onCancel, onSave }: { p
     try { onSave({ id: product?.id, provider_id: provider, service, network_name: text("network_name"), network_id: Number(text("network_id")), plan_name: text("plan_name"), data_plan_id: service === "data" ? Number(text("data_plan_id")) : null, plan_type: text("plan_type") || null, validity: text("validity") || null, cost_kobo: money("cost"), selling_price_kobo: service === "data" ? money("price") : null, min_amount_kobo: money("min"), max_amount_kobo: money("max"), markup_percent: Number(text("markup")), active: f.get("active") === "on" }); }
     catch (error) { toast.error(error instanceof Error ? error.message : "Invalid mapping."); }
   }
+  const airtimeNetworkOptions = [
+    { name: "MTN", id: 1 }, { name: "Glo", id: 2 }, { name: "Airtel", id: 3 }, { name: "9mobile", id: 4 },
+  ];
+  const selectedAirtimeNetwork = airtimeNetworkOptions.find((n) =>
+    n.name.toLowerCase() === (product?.network_name ?? "").trim().toLowerCase()
+  );
   const fields = [
-    { key: "network_name", label: "Network name", value: product?.network_name, required: true },
-    { key: "network_id", label: "Provider network ID", value: product?.network_id, required: true, numeric: true },
-    { key: "plan_name", label: service === "data" ? "Customer plan name" : "Network display name", value: product?.plan_name, required: true },
+    ...(service === "airtime" ? [
+      { key: "network_name", label: "Network", value: selectedAirtimeNetwork?.name ?? product?.network_name, required: true, select: true },
+      { key: "network_id", label: "Network ID (automatically assigned)", value: selectedAirtimeNetwork?.id ?? product?.network_id, required: true, numeric: true, readOnly: true },
+    ] : [
+      { key: "network_name", label: "Network name", value: product?.network_name, required: true },
+      { key: "network_id", label: "Provider network ID", value: product?.network_id, required: true, numeric: true },
+    ]),
+    { key: "plan_name", label: service === "data" ? "Customer plan name" : "Network display name", value: service === "airtime" ? (selectedAirtimeNetwork?.name ?? product?.plan_name) : product?.plan_name, required: true },
     ...(service === "data" ? [
       { key: "data_plan_id", label: "Provider data_plan ID", value: product?.data_plan_id, required: true, numeric: true },
       { key: "plan_type", label: "Plan type", value: product?.plan_type },
@@ -107,5 +118,5 @@ function MappingForm({ provider, service, product, busy, onCancel, onSave }: { p
       { key: "markup", label: "Customer markup (%)", value: product?.markup_percent ?? 0 },
     ]),
   ];
-  return <form onSubmit={submit} className="space-y-4 border-t pt-5"><h3 className="font-semibold">{product ? "Edit" : "Add"} {service === "data" ? "data plan" : "airtime network"}</h3><div className="grid gap-3 sm:grid-cols-2">{fields.map((f) => <label key={f.key} className="text-sm">{f.label}<Input name={f.key} defaultValue={f.value ?? ""} required={f.required} type={f.numeric ? "number" : "text"} min={f.numeric ? 1 : undefined} maxLength={100} /></label>)}</div><label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={product?.active ?? false} />Mapping active (purchases remain gated)</label><div className="flex gap-2"><Button disabled={busy}>Save mapping</Button><Button type="button" variant="outline" onClick={onCancel}>Cancel</Button></div></form>;
+  return <form onSubmit={submit} className="space-y-4 border-t pt-5"><h3 className="font-semibold">{product ? "Edit" : "Add"} {service === "data" ? "data plan" : "airtime network"}</h3><div className="grid gap-3 sm:grid-cols-2">{fields.map((f) => <label key={f.key} className="text-sm">{f.label}{f.select ? <select name={f.key} defaultValue={f.value ?? ""} required={f.required} className="mt-1 h-9 w-full rounded-md border bg-background px-3" onChange={(e) => { const idInput = e.currentTarget.form?.elements.namedItem("network_id") as HTMLInputElement | null; if (idInput) idInput.value = String(airtimeNetworkOptions.find((n) => n.name === e.target.value)?.id ?? ""); const planInput = e.currentTarget.form?.elements.namedItem("plan_name") as HTMLInputElement | null; if (planInput) planInput.value = e.target.value; }}><option value="">Select network</option>{airtimeNetworkOptions.map((n) => <option key={n.name} value={n.name}>{n.name}</option>)}</select> : <Input name={f.key} defaultValue={f.value ?? ""} required={f.required} type={f.numeric ? "number" : "text"} min={f.numeric ? 1 : undefined} maxLength={100} readOnly={f.readOnly} />}</label>)}</div><label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={product?.active ?? false} />Mapping active (purchases remain gated)</label><div className="flex gap-2"><Button disabled={busy}>Save mapping</Button><Button type="button" variant="outline" onClick={onCancel}>Cancel</Button></div></form>;
 }
