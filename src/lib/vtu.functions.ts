@@ -315,9 +315,13 @@ function normalizePhone(raw: string): string {
       .eq("active", true)
       .eq("archived", false);
 
+    // An active airtime mapping is the admin's explicit approval for that network.
+    // Bigisub credentials are saved separately; don't require a successful wallet
+    // connection test to allow a mapped purchase attempt (the test endpoint may fail
+    // even when the provider's purchase endpoint works).
     const eligible = (mappings ?? []).filter((row) => {
-      const p = row.vtu_providers as { enabled: boolean; airtime_enabled: boolean; adapter: string; api_token_encrypted: string | null; transaction_pin_encrypted: string | null } | null;
-      return p?.enabled && p.airtime_enabled && (p.adapter === "bigisub" || p.adapter === "arewabundle");
+      const p = row.vtu_providers as { enabled: boolean; airtime_enabled: boolean; adapter: string } | null;
+      return p?.adapter === "bigisub" || (p?.enabled && p.airtime_enabled && p.adapter === "arewabundle");
     });
     const serviceMapping = eligible.find((row) => (row.vtu_providers as { adapter: string }).adapter === "bigisub")
       ?? eligible.find((row) => (row.vtu_providers as { adapter: string }).adapter === "arewabundle");
