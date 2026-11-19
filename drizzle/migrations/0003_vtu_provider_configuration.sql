@@ -2,7 +2,7 @@ CREATE TABLE public.vtu_providers (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
  name text NOT NULL CHECK (char_length(name) BETWEEN 2 AND 80),
  adapter text NOT NULL CHECK (adapter IN ('arewabundle','unimplemented')),
- enabled boolean NOT NULL DEFAULT false CHECK (enabled = false),
+ enabled boolean NOT NULL DEFAULT false,
  data_enabled boolean NOT NULL DEFAULT false,
  airtime_enabled boolean NOT NULL DEFAULT false,
  connection_status text NOT NULL DEFAULT 'not_tested' CHECK (connection_status IN ('not_tested','authenticated','error','not_configured')),
