@@ -65,11 +65,29 @@ const result = await context.supabase.from("vtu_providers").insert(data).select(
                                     });
                                         if (!admin) throw new Error("Administrator permission required.");
 const { id, ...values } = data;
+    const canonicalNetwork = values.service === "airtime"
+      ? normalizeAirtimeNetworkName(values.network_name)
+      : values.network_name.trim();
+    const normalizedValues = {
+      ...values,
+      network_name: canonicalNetwork,
+      ...(values.service === "airtime"
+        ? { network_id: BIGISUB_AIRTIME_NETWORK_IDS[canonicalNetwork.toUpperCase()] ?? values.network_id }
+        : {}),
+    };
+    if (values.service === "airtime") {
+      const duplicateQuery = context.supabase.from("vtu_products")
+        .select("id").eq("provider_id", values.provider_id).eq("service", "airtime")
+        .eq("network_name", canonicalNetwork).eq("archived", false);
+      const duplicate = id ? await duplicateQuery.neq("id", id).maybeSingle() : await duplicateQuery.maybeSingle();
+      if (duplicate.error) throw new Error("Could not verify duplicate airtime network mappings.");
+      if (duplicate.data) throw new Error(`An airtime mapping for ${canonicalNetwork} already exists. Edit the existing mapping instead.`);
+    }
     const result = id
-          ? await context.supabase.from("vtu_products").update(values).eq("id", id).select("id").single()
-                : await context.supabase.from("vtu_products").insert(values).select("id").single();
-                    if (result.error) throw new Error("Could not save this mapping.");
-                        return result.data;
+      ? await context.supabase.from("vtu_products").update(normalizedValues).eq("id", id).select("id").single()
+      : await context.supabase.from("vtu_products").insert(normalizedValues).select("id").single();
+    if (result.error) throw new Error(result.error.message || "Could not save this mapping.");
+    return result.data;
                           });
                           export const archiveProduct = createServerFn({ method: "POST" })
                             .middleware([requireSupabaseAuth])
@@ -251,6 +269,15 @@ export const getCustomerProducts = createServerFn({ method: "GET" })
                                           if (error) throw new Error("Could not load products.");
                                               return { products: data ?? [], purchasesAvailable: true };
                                                 });
+const BIGISUB_AIRTIME_NETWORK_IDS: Record<string, number> = { MTN: 1, GLO: 2, AIRTEL: 3, "9MOBILE": 4 };
+function normalizeAirtimeNetworkName(raw: string): string {
+  const cleaned = raw.trim().toUpperCase().replace(/\s+/g, "");
+  if (cleaned === "9MOBILE" || cleaned === "9MOB" || cleaned === "ETISALAT") return "9mobile";
+  if (cleaned === "GLO") return "Glo";
+  if (cleaned === "AIRTEL") return "Airtel";
+  if (cleaned === "MTN") return "MTN";
+  return raw.trim();
+}
 function normalizePhone(raw: string): string {
       const cleaned = raw.replace(/\D/g, "");
         if (cleaned.startsWith("0") && cleaned.length === 11) {
@@ -281,7 +308,7 @@ function normalizePhone(raw: string): string {
       .from("vtu_products")
       .select("id, provider_id, network_id, network_name, min_amount_kobo, max_amount_kobo, vtu_providers!inner(enabled, airtime_enabled, adapter)")
       .eq("service", "airtime")
-      .ilike("network_name", data.networkName)
+      .eq("network_name", normalizeAirtimeNetworkName(data.networkName))
       .eq("active", true)
       .eq("archived", false);
 
@@ -338,7 +365,7 @@ function normalizePhone(raw: string): string {
         await refund("Bigisub credentials missing before request");
         throw new Error("Bigisub is not configured. Wallet debit was reversed.");
       }
-      const network = ({ MTN: 1, GLO: 2, Airtel: 3, "9mobile": 4 } as Record<string, number>)[data.networkName];
+      const network = BIGISUB_AIRTIME_NETWORK_IDS[normalizeAirtimeNetworkName(data.networkName).toUpperCase()];
       if (!network) {
         await refund("Unsupported Bigisub network name");
         throw new Error("Selected network is not supported by Bigisub. Wallet debit was reversed.");
