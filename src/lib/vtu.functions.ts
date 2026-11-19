@@ -203,10 +203,12 @@ export const testProviderConnection = createServerFn({ method: "POST" })
               ? `Bigisub token verified. Provider wallet balance: ₦${balance.toLocaleString("en-NG")}.`
               : "Bigisub token verified and wallet endpoint responded.";
           } else {
-            message = `Bigisub check failed (HTTP ${response.status}). Verify the token and API access.`;
+            const safeDetail = typeof body?.message === "string" ? body.message.slice(0, 180) : "";
+            message = `Bigisub wallet check failed (HTTP ${response.status})${safeDetail ? `: ${safeDetail}` : ""}. Check token validity and Bigisub API access.`;
           }
-        } catch {
-          message = "Bigisub wallet check could not be completed.";
+        } catch (error) {
+          const detail = error instanceof Error ? error.name : "Unknown error";
+          message = `Bigisub wallet check could not complete (${detail}). Check server network/timeout logs.`;
         }
       }
     } else {
