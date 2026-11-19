@@ -549,10 +549,11 @@ export const attachBigisubTransactionId = createServerFn({ method: "POST" })
 
 export const requeryBigisubAirtime = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ reference: z.string().min(1) }).parse(input))
+  .inputValidator((input) => z.object({ reference: z.string().min(1), confirmMatch: z.literal(true) }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: admin, error } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
     if (error || !admin) throw new Error("Administrator permission required.");
+    if (data.confirmMatch !== true) throw new Error("Verify the provider transaction recipient and amount before rechecking.");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: pending, error: pendingError } = await supabaseAdmin.from("bigisub_airtime_pending")
       .select("*").eq("reference", data.reference).single();
