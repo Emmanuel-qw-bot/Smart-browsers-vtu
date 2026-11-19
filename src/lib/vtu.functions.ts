@@ -342,7 +342,7 @@ export const purchaseData = createServerFn({ method: "POST" })
   }).parse(input))
   .handler(async ({ data, context }) => {
     const phone = normalizePhone(data.phone);
-    if (!/^0\\d{10}$/.test(phone)) {
+    if (!/^0\d{10}$/.test(phone)) {
       throw new Error("Enter a valid Nigerian phone number, for example 08012345678.");
     }
 
