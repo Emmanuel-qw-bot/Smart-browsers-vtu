@@ -21,7 +21,7 @@ export function ProviderControl() {
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
-  const [adapter, setAdapter] = useState<"arewabundle" | "unimplemented">("arewabundle");
+  const [adapter, setAdapter] = useState<"arewabundle" | "bigisub" | "unimplemented">("arewabundle");
   const [editing, setEditing] = useState<{ provider: string; service: "data" | "airtime"; product?: Tables<"vtu_products"> } | null>(null);
   const [notice, setNotice] = useState("");
   async function run(action: () => Promise<unknown>) {
@@ -43,17 +43,17 @@ export function ProviderControl() {
   return <div className="space-y-6">
     <div className="flex items-start gap-3 border-l-4 border-gold bg-muted p-4 text-sm">
       <ShieldAlert className="size-5 shrink-0 text-primary" />
-      <p>Test mode: passing Arewabundle connection authentication enables data purchases. Use only a small test order and verify delivery before retrying.</p>
+      <p>Connection check verifies provider credentials. Bigisub has no sandbox; its live airtime API can spend provider funds, so only test with adult oversight and a small amount.</p>
     </div>
     <div className="flex justify-end"><Button variant="outline" onClick={() => setAdding(!adding)}><Plus />Add provider</Button></div>
     {adding && <form className="grid gap-3 border-b pb-5 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); void run(async () => { await add({ data: { name, adapter } }); setAdding(false); setName(""); }); }}>
       <label className="text-sm">Provider name<Input required minLength={2} maxLength={80} value={name} onChange={(e) => setName(e.target.value)} /></label>
-      <label className="text-sm">Connection<select className="mt-1 h-9 w-full rounded-md border bg-background px-3" value={adapter} onChange={(e) => setAdapter(e.target.value === "arewabundle" ? "arewabundle" : "unimplemented")}><option value="arewabundle">Arewabundle</option><option value="unimplemented">Future provider — not connected</option></select></label>
+      <label className="text-sm">Connection<select className="mt-1 h-9 w-full rounded-md border bg-background px-3" value={adapter} onChange={(e) => setAdapter(e.target.value as "arewabundle" | "bigisub" | "unimplemented")}><option value="arewabundle">Arewabundle</option><option value="bigisub">Bigisub</option><option value="unimplemented">Future provider — not connected</option></select></label>
       <Button className="self-end" disabled={busy}><Plus />Save provider</Button>
     </form>}
-    {!data.providers.length && <p className="text-sm text-muted-foreground">No provider settings saved. Add Arewabundle to configure your plans.</p>}
+    {!data.providers.length && <p className="text-sm text-muted-foreground">No provider settings saved. Add a provider to configure its plans.</p>}
     {data.providers.map((p) => <section key={p.id} className="space-y-4 border-b pb-6">
-      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-display text-xl font-semibold">{p.name}</h2><Button variant="outline" disabled={busy || p.adapter !== "arewabundle"} onClick={() => void run(async () => { const result = await test({ data: { id: p.id } }); setNotice(result.message); })}><RefreshCw />Test connection</Button></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-display text-xl font-semibold">{p.name}</h2><Button variant="outline" disabled={busy || p.adapter === "unimplemented"} onClick={() => void run(async () => { const result = await test({ data: { id: p.id } }); setNotice(result.message); })}><RefreshCw />Test connection</Button></div>
       <dl className="grid gap-4 text-sm sm:grid-cols-3"><div><dt className="text-muted-foreground">Account connection</dt><dd className="font-semibold">{p.connection_status.replaceAll("_", " ")}</dd></div><div><dt className="text-muted-foreground">Last authentication</dt><dd>{p.last_authenticated_at ? new Date(p.last_authenticated_at).toLocaleString("en-NG") : "Not tested"}</dd></div><div><dt className="text-muted-foreground">Customer services</dt><dd>Enabled after connection test</dd></div></dl>
       {p.last_error && <p role="alert" className="text-sm text-destructive">{p.last_error}</p>}
       {(["data", "airtime"] as const).map((service) => <div key={service} className="space-y-3">
