@@ -366,6 +366,14 @@ function normalizePhone(raw: string): string {
     };
 
     if (providerSettings.adapter === "bigisub") {
+      const pendingInsert = await supabaseAdmin.from("bigisub_airtime_pending").insert({
+        reference: purchaseRef, user_id: context.userId, network_name: data.networkName,
+        phone, amount_naira: data.amountNaira, status: "pending",
+      });
+      if (pendingInsert.error) {
+        await refund("Could not create pending transaction tracking record before provider request");
+        throw new Error("Transaction tracking could not be initialized. Wallet debit was reversed; no provider request was sent.");
+      }
       const token = decryptProviderSecret(bigisubSecrets?.api_token_encrypted ?? null);
       const pin = decryptProviderSecret(bigisubSecrets?.transaction_pin_encrypted ?? null);
       if (!token || !pin) {
@@ -400,24 +408,36 @@ function normalizePhone(raw: string): string {
           data?: { transaction_id?: string; reference?: string; status?: string };
           message?: string;
         } | null;
+        const providerTxnId = body?.data?.transaction_id ?? body?.data?.reference ?? null;
+        if (providerTxnId) {
+          await supabaseAdmin.from("bigisub_airtime_pending").update({
+            provider_transaction_id: providerTxnId,
+            provider_message: body?.message ?? null,
+          }).eq("reference", purchaseRef);
+        }
         if (response.ok && body?.success === true && body.data?.status === "successful") {
+          await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "successful", last_checked_at: new Date().toISOString(), provider_message: body?.message ?? "Purchase successful" }).eq("reference", purchaseRef);
           return {
             success: true,
-            message: `₦${data.amountNaira} airtime request succeeded for ${phone}. Provider reference: ${body.data.transaction_id ?? body.data.reference ?? "received"}`,
+            message: `₦${data.amountNaira} airtime request succeeded for ${phone}. Provider reference: ${providerTxnId ?? "received"}`,
             reference: purchaseRef,
-            providerReference: body.data.transaction_id ?? body.data.reference ?? null,
+            providerReference: providerTxnId,
           };
         }
         if (body?.data?.status === "processing") {
-          throw new Error(`PENDING: Bigisub transaction is processing. Do not retry. Reference: ${body.data.transaction_id ?? purchaseRef}`);
+          await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "pending", last_checked_at: new Date().toISOString(), provider_message: body?.message ?? "Provider reports processing" }).eq("reference", purchaseRef);
+          throw new Error(`PENDING: Bigisub transaction is processing. Do not retry. Reference: ${providerTxnId ?? purchaseRef}`);
         }
         if (body?.data?.status === "failed" || (!response.ok && response.status >= 400 && response.status < 500)) {
           await refund(body?.message ?? `Bigisub rejected request (HTTP ${response.status})`);
+          await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "refunded", last_checked_at: new Date().toISOString(), provider_message: body?.message ?? "Provider rejected; wallet refunded" }).eq("reference", purchaseRef);
           throw new Error(`REFUNDED: ${body?.message ?? "Bigisub rejected the airtime request. Wallet debit was reversed."}`);
         }
-        throw new Error(`PENDING: Bigisub returned an uncertain result. Do not retry. Reference: ${body?.data?.transaction_id ?? purchaseRef}`);
+        await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "uncertain", last_checked_at: new Date().toISOString(), provider_message: body?.message ?? `Uncertain response HTTP ${response.status}` }).eq("reference", purchaseRef);
+        throw new Error(`PENDING: Bigisub returned an uncertain result. Do not retry. Reference: ${providerTxnId ?? purchaseRef}`);
       } catch (error) {
         if (error instanceof Error && (error.message.startsWith("REFUNDED:") || error.message.startsWith("PENDING:"))) throw error;
+        await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "uncertain", last_checked_at: new Date().toISOString(), provider_message: error instanceof Error ? error.message.slice(0, 300) : "Request outcome uncertain; no provider transaction ID returned" }).eq("reference", purchaseRef);
         throw new Error(`PENDING: Bigisub response uncertain; wallet not automatically refunded. Do not retry. Reference: ${purchaseRef}`);
       }
     }
@@ -475,6 +495,75 @@ function normalizePhone(raw: string): string {
       if (error instanceof Error && (error.message.startsWith("REFUNDED:") || error.message.startsWith("PENDING:"))) throw error;
       throw new Error(`PENDING: Airtime outcome uncertain. Wallet not automatically refunded. Do not retry. Reference: ${purchaseRef}`);
     }
+  });
+
+export const getPendingBigisubAirtime = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: admin, error } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    if (error || !admin) throw new Error("Administrator permission required.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error: listError } = await supabaseAdmin.from("bigisub_airtime_pending")
+      .select("reference,user_id,provider_transaction_id,network_name,phone,amount_naira,status,provider_message,created_at,last_checked_at")
+      .in("status", ["pending", "uncertain"]).order("created_at", { ascending: false }).limit(100);
+    if (listError) throw new Error("Could not load pending Bigisub airtime transactions.");
+    return data ?? [];
+  });
+
+export const attachBigisubTransactionId = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ reference: z.string().min(1), providerTransactionId: z.string().min(2).max(100 }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: admin, error } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    if (error || !admin) throw new Error("Administrator permission required.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: updateError } = await supabaseAdmin.from("bigisub_airtime_pending")
+      .update({ provider_transaction_id: data.providerTransactionId.trim(), status: "pending", provider_message: "Provider transaction ID added for reconciliation" })
+      .eq("reference", data.reference).in("status", ["pending", "uncertain"]);
+    if (updateError) throw new Error("Could not save Bigisub transaction ID.");
+    return { ok: true };
+  });
+
+export const requeryBigisubAirtime = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ reference: z.string().min(1) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: admin, error } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    if (error || !admin) throw new Error("Administrator permission required.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: pending, error: pendingError } = await supabaseAdmin.from("bigisub_airtime_pending")
+      .select("*").eq("reference", data.reference).single();
+    if (pendingError || !pending) throw new Error("Pending transaction not found.");
+    if (!pending.provider_transaction_id) throw new Error("Add the provider's transaction ID from Bigisub transaction history before rechecking.");
+    if (pending.status === "successful" || pending.status === "refunded") return { status: pending.status, message: "This transaction is already resolved." };
+    const { data: provider } = await supabaseAdmin.from("vtu_providers").select("api_token_encrypted")
+      .eq("adapter", "bigisub").maybeSingle();
+    const token = decryptProviderSecret(provider?.api_token_encrypted ?? null);
+    if (!token) throw new Error("Bigisub API token is unavailable.");
+    const response = await fetch(`https://api.bigisub.ng/api/v2/anubis/transactions/${encodeURIComponent(pending.provider_transaction_id)}/requery/`, {
+      method: "POST", redirect: "error", signal: AbortSignal.timeout(20000),
+      headers: { Authorization: `Token ${token}`, Accept: "application/json" },
+    });
+    const body = await response.json().catch(() => null) as { success?: boolean; data?: { new_status?: string; status?: string; message?: string }; message?: string } | null;
+    if (!response.ok || body?.success !== true) throw new Error(body?.message ?? `Bigisub requery failed (HTTP ${response.status}).`);
+    const status = body.data?.new_status ?? body.data?.status ?? "";
+    const message = body.data?.message ?? body.message ?? "Status checked.";
+    const now = new Date().toISOString();
+    if (status === "successful") {
+      await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "successful", last_checked_at: now, provider_message: message }).eq("reference", data.reference);
+      return { status, message };
+    }
+    if (status === "failed") {
+      const { error: refundError } = await supabaseAdmin.rpc("wallet_post", {
+        _user_id: pending.user_id, _category: "refund", _amount_kobo: pending.amount_naira * 100,
+        _reference: `refund:${pending.reference}`, _description: `Refund confirmed failed Bigisub airtime ${pending.reference}`,
+      });
+      if (refundError) throw new Error("Bigisub confirmed failure, but the customer refund could not be posted. Contact support immediately.");
+      await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "refunded", last_checked_at: now, provider_message: `${message} Customer wallet refund posted.` }).eq("reference", data.reference);
+      return { status: "refunded", message: `${message} Customer wallet refunded.` };
+    }
+    await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "pending", last_checked_at: now, provider_message: message }).eq("reference", data.reference);
+    return { status: "pending", message: message || "Still processing. Wait before checking again." };
   });
 
 export const purchaseData = createServerFn({ method: "POST" })
