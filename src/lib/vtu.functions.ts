@@ -29,7 +29,7 @@ export const getProviderControl = createServerFn({ method: "GET" })
                                                                                           });
                                                                                               if (!admin) throw new Error("Administrator permission required.");
 const result = await context.supabase.from("vtu_providers").insert(data).select("id").single();
-    if (result.error) throw new Error("Could not add provider; Arewabundle can only be added once.");
+    if (result.error) throw new Error("Could not add provider; each provider adapter can only be added once.");
         return result.data;
           });
           export const saveProduct = createServerFn({ method: "POST" })
@@ -225,7 +225,7 @@ function normalizePhone(raw: string): string {
       .from("vtu_products")
       .select("id, provider_id, network_id, network_name, min_amount_kobo, max_amount_kobo, vtu_providers!inner(enabled, airtime_enabled, adapter)")
       .eq("service", "airtime")
-      .eq("network_name", data.networkName)
+      .ilike("network_name", data.networkName)
       .eq("active", true)
       .eq("archived", false);
 
