@@ -214,7 +214,7 @@ function normalizePhone(raw: string): string {
     networkId: z.number().int().positive(),
     networkName: z.string().min(1),
     phone: z.string().min(10).max(15),
-    amountNaira: z.number().int().min(50).max(10000,
+    amountNaira: z.number().int().min(50).max(10000)
   }).parse(input))
   .handler(async ({ data, context }) => {
     const phone = normalizePhone(data.phone);
