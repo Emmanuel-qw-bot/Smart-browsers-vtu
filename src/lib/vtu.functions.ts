@@ -63,57 +63,92 @@ const result = await context.supabase.from("vtu_products").update({ archived: tr
           });
 
           export const testProviderConnection = createServerFn({ method: "POST" })
-            .middleware([requireSupabaseAuth])
-              .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
-                .handler(async ({ data, context }) => {
-                    const { data: admin } = await context.supabase.rpc("has_role", {
-                          _user_id: context.userId,
-                                _role: "admin",
-                                    });
-                                        if (!admin) throw new Error("Administrator permission required.");
-const { data: provider } = await context.supabase.from("vtu_providers").select("adapter").eq("id", data.id).single();
-    if (provider?.adapter !== "arewabundle") return { ok: false, message: "This provider has no implemented connection." };
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: admin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (!admin) throw new Error("Administrator permission required.");
 
-        const gatewayKey = process.env["LOVABLE_API_KEY"];
-            const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
-                let ok = false;
-                    let status: "authenticated" | "error" | "not_configured" = "not_configured";
-                        let message = "Arewabundle account credentials are not configured.";
-if (gatewayKey && connectionKey) {
-          status = "error";
-                try {
-                        const response = await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user", {
-                                  method: "POST",
-                                            redirect: "error",
-                                                      signal: AbortSignal.timeout(20000),
-                                                                headers: {
-                                                                            Authorization: `Bearer ${gatewayKey}`,
-                                                                                        "X-Connection-Api-Key": connectionKey,
-                                                                                                    Accept: "application/json",
-                                                                                                              },
-                                                                                                                      });
-                                                                                                                              ok = response.ok && hasAccessToken(await response.json());
-                                                                                                                                      message = ok
-                                                                                                                                                ? "Account authentication passed. Arewabundle data purchases are enabled for testing."
-                                                                                                                                                          : `Account authentication did not pass (HTTP ${response.status}). Check credentials.`;
-                                                                                                                                                                  if (ok) status = "authenticated";
-                                                                                                                                                                        } catch {
-                                                                                                                                                                                message = "Account authentication could not be completed.";
-                                                                                                                                                                                      }
-                                                                                                                                                                                          }
-const now = new Date().toISOString();
-    await context.supabase
-          .from("vtu_providers")
-                .update({
-                        connection_status: status,
-                                last_checked_at: now,
-                                        last_error: ok ? null : message,
-                                                ...(ok ? { last_authenticated_at: now, enabled: true, data_enabled: true } : {}),
-                                                      })
-                                                            .eq("id", data.id);
+    const { data: provider } = await context.supabase
+      .from("vtu_providers")
+      .select("adapter")
+      .eq("id", data.id)
+      .single();
 
-                                                                return { ok, message };
-                                                                  });
+    let ok = false;
+    let status: "authenticated" | "error" | "not_configured" = "not_configured";
+    let message = "Provider credentials are not configured.";
+
+    if (provider?.adapter === "arewabundle") {
+      const gatewayKey = process.env["LOVABLE_API_KEY"];
+      const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
+      if (gatewayKey && connectionKey) {
+        status = "error";
+        try {
+          const response = await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user", {
+            method: "POST",
+            redirect: "error",
+            signal: AbortSignal.timeout(20000),
+            headers: {
+              Authorization: `Bearer ${gatewayKey}`,
+              "X-Connection-Api-Key": connectionKey,
+              Accept: "application/json",
+            },
+          });
+          ok = response.ok && hasAccessToken(await response.json());
+          message = ok ? "Arewabundle account authentication passed." : `Authentication failed (HTTP ${response.status}).`;
+          if (ok) status = "authenticated";
+        } catch {
+          message = "Arewabundle authentication could not be completed.";
+        }
+      }
+    } else if (provider?.adapter === "bigisub") {
+      const token = process.env["BIGISUB_API_TOKEN"];
+      if (token) {
+        status = "error";
+        try {
+          const response = await fetch("https://api.bigisub.ng/api/v2/financial/wallet/balance/", {
+            method: "GET",
+            redirect: "error",
+            signal: AbortSignal.timeout(15000),
+            headers: { Authorization: `Token ${token}`, Accept: "application/json" },
+          });
+          const body = await response.json().catch(() => null) as {
+            success?: boolean;
+            data?: { balance?: number | string; pending_amount?: number | string };
+            message?: string;
+          } | null;
+          ok = response.ok && body?.success === true && body.data?.balance !== undefined;
+          if (ok) {
+            status = "authenticated";
+            const balance = Number(body?.data?.balance);
+            message = Number.isFinite(balance)
+              ? `Bigisub token verified. Provider wallet balance: ₦${balance.toLocaleString("en-NG")}.`
+              : "Bigisub token verified and wallet endpoint responded.";
+          } else {
+            message = `Bigisub check failed (HTTP ${response.status}). Verify the token and API access.`;
+          }
+        } catch {
+          message = "Bigisub wallet check could not be completed.";
+        }
+      }
+    } else {
+      message = "This provider has no implemented connection.";
+    }
+
+    const now = new Date().toISOString();
+    await context.supabase.from("vtu_providers").update({
+      connection_status: status,
+      last_checked_at: now,
+      last_error: ok ? null : message,
+      ...(ok ? { last_authenticated_at: now, enabled: true, airtime_enabled: provider?.adapter === "bigisub" } : {}),
+    }).eq("id", data.id);
+
+    return { ok, message };
+  });
 export const adjustCustomerWallet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
     .inputValidator((input) =>
