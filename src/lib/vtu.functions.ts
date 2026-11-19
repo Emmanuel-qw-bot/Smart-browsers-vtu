@@ -35,7 +35,7 @@ export const getProviderControl = createServerFn({ method: "GET" })
                         });
                             if (error || !admin) throw new Error("Administrator permission required.");
                             const [providers, products, audit] = await Promise.all([
-                                      context.supabase.from("vtu_providers").select("*").order("created_at"),
+                                      context.supabase.from("vtu_providers").select("id, name, adapter, enabled, data_enabled, airtime_enabled, connection_status, last_authenticated_at, last_checked_at, last_error, created_at").order("created_at"),
                                             context.supabase.from("vtu_products").select("*").eq("archived", false).order("created_at"),
                                                   context.supabase.from("vtu_configuration_audit").select("*").order("created_at", { ascending: false }).limit(30),
                                                       ]);
