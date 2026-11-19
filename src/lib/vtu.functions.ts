@@ -162,7 +162,7 @@ export const testProviderConnection = createServerFn({ method: "POST" })
         }
       }
     } else if (provider?.adapter === "bigisub") {
-      const token = process.env["BIGISUB_API_TOKEN"];
+      const token = decryptProviderSecret((provider as unknown as { api_token_encrypted?: string | null } | null)?.api_token_encrypted ?? null);
       if (token) {
         status = "error";
         try {
