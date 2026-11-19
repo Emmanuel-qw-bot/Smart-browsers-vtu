@@ -207,8 +207,9 @@ export const testProviderConnection = createServerFn({ method: "POST" })
             message = `Bigisub wallet check failed (HTTP ${response.status})${safeDetail ? `: ${safeDetail}` : ""}. Check token validity and Bigisub API access.`;
           }
         } catch (error) {
-          const detail = error instanceof Error ? error.name : "Unknown error";
-          message = `Bigisub wallet check could not complete (${detail}). Check server network/timeout logs.`;
+          const detail = error instanceof Error ? error.message : String(error);
+          const safeDetail = detail.replace(/token[^\s]*/gi, "[redacted]").slice(0, 180);
+          message = `Bigisub wallet check could not complete: ${safeDetail || "Unknown connection error"}.`;
         }
       }
     } else {
