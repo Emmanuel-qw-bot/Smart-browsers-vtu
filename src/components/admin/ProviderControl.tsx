@@ -43,7 +43,7 @@ export function ProviderControl() {
   return <div className="space-y-6">
     <div className="flex items-start gap-3 border-l-4 border-gold bg-muted p-4 text-sm">
       <ShieldAlert className="size-5 shrink-0 text-primary" />
-      <p>Customer purchases are disabled. Account authentication is separate from purchase approval; response meanings and callback verification still need confirmation.</p>
+      <p>Test mode: passing Arewabundle connection authentication enables data purchases. Use only a small test order and verify delivery before retrying.</p>
     </div>
     <div className="flex justify-end"><Button variant="outline" onClick={() => setAdding(!adding)}><Plus />Add provider</Button></div>
     {adding && <form className="grid gap-3 border-b pb-5 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); void run(async () => { await add({ data: { name, adapter } }); setAdding(false); setName(""); }); }}>
@@ -54,7 +54,7 @@ export function ProviderControl() {
     {!data.providers.length && <p className="text-sm text-muted-foreground">No provider settings saved. Add Arewabundle to configure your plans.</p>}
     {data.providers.map((p) => <section key={p.id} className="space-y-4 border-b pb-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-display text-xl font-semibold">{p.name}</h2><Button variant="outline" disabled={busy || p.adapter !== "arewabundle"} onClick={() => void run(async () => { const result = await test({ data: { id: p.id } }); setNotice(result.message); })}><RefreshCw />Test connection</Button></div>
-      <dl className="grid gap-4 text-sm sm:grid-cols-3"><div><dt className="text-muted-foreground">Account connection</dt><dd className="font-semibold">{p.connection_status.replaceAll("_", " ")}</dd></div><div><dt className="text-muted-foreground">Last authentication</dt><dd>{p.last_authenticated_at ? new Date(p.last_authenticated_at).toLocaleString("en-NG") : "Not tested"}</dd></div><div><dt className="text-muted-foreground">Customer services</dt><dd>Disabled — awaiting approved tests</dd></div></dl>
+      <dl className="grid gap-4 text-sm sm:grid-cols-3"><div><dt className="text-muted-foreground">Account connection</dt><dd className="font-semibold">{p.connection_status.replaceAll("_", " ")}</dd></div><div><dt className="text-muted-foreground">Last authentication</dt><dd>{p.last_authenticated_at ? new Date(p.last_authenticated_at).toLocaleString("en-NG") : "Not tested"}</dd></div><div><dt className="text-muted-foreground">Customer services</dt><dd>Enabled after connection test</dd></div></dl>
       {p.last_error && <p role="alert" className="text-sm text-destructive">{p.last_error}</p>}
       {(["data", "airtime"] as const).map((service) => <div key={service} className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">{service === "data" ? "Data Plan Management" : "Airtime Network Management"}</h3><Button size="sm" variant="outline" onClick={() => setEditing({ provider: p.id, service })}><Plus />{service === "data" ? "Add plan" : "Add network"}</Button></div>
