@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatNaira, nairaToKobo } from "@/lib/wallet";
-import { addProvider, archiveProduct, getProviderControl, saveProduct, testProviderConnection } from "@/lib/vtu.functions";
+import { addProvider, archiveProduct, deleteProvider, getProviderControl, saveProduct, saveProviderCredentials, testProviderConnection } from "@/lib/vtu.functions";
 import type { Tables } from "@/integrations/supabase/types";
 
 export const providerControlQuery = queryOptions({ queryKey: ["admin", "vtu-control"], queryFn: () => getProviderControl() });
@@ -18,12 +18,15 @@ export function ProviderControl() {
   const save = useServerFn(saveProduct);
   const remove = useServerFn(archiveProduct);
   const test = useServerFn(testProviderConnection);
+  const saveCredentials = useServerFn(saveProviderCredentials);
+  const deleteProviderFn = useServerFn(deleteProvider);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [adapter, setAdapter] = useState<"arewabundle" | "bigisub" | "unimplemented">("arewabundle");
   const [editing, setEditing] = useState<{ provider: string; service: "data" | "airtime"; product?: Tables<"vtu_products"> } | null>(null);
   const [notice, setNotice] = useState("");
+  const [credentialInputs, setCredentialInputs] = useState<Record<string, { apiToken: string; transactionPin: string }>>({});
   async function run(action: () => Promise<unknown>) {
       setBusy(true);
         try {
@@ -54,6 +57,14 @@ export function ProviderControl() {
     {!data.providers.length && <p className="text-sm text-muted-foreground">No provider settings saved. Add a provider to configure its plans.</p>}
     {data.providers.map((p) => <section key={p.id} className="space-y-4 border-b pb-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-display text-xl font-semibold">{p.name}</h2><Button variant="outline" disabled={busy || p.adapter === "unimplemented"} onClick={() => void run(async () => { const result = await test({ data: { id: p.id } }); setNotice(result.message); })}><RefreshCw />Test connection</Button></div>
+      {p.adapter === "bigisub" && <div className="rounded-xl border p-4 space-y-3">
+        <h3 className="font-semibold">Bigisub secure credentials</h3>
+        <p className="text-xs text-muted-foreground">Saved values are encrypted. Leave a field blank to keep its current value. Enter new values only when setting or replacing credentials.</p>
+        <label className="block text-sm">API token<Input type="password" autoComplete="off" value={credentialInputs[p.id]?.apiToken ?? ""} onChange={(e) => setCredentialInputs((prev) => ({ ...prev, [p.id]: { apiToken: e.target.value, transactionPin: prev[p.id]?.transactionPin ?? "" } }))} placeholder="Paste API token here" /></label>
+        <label className="block text-sm">Transaction PIN<Input type="password" autoComplete="off" inputMode="numeric" value={credentialInputs[p.id]?.transactionPin ?? ""} onChange={(e) => setCredentialInputs((prev) => ({ ...prev, [p.id]: { apiToken: prev[p.id]?.apiToken ?? "", transactionPin: e.target.value } }))} placeholder="Enter transaction PIN" /></label>
+        <Button disabled={busy || (!credentialInputs[p.id]?.apiToken && !credentialInputs[p.id]?.transactionPin)} onClick={() => void run(async () => { const values = credentialInputs[p.id]; await saveCredentials({ data: { id: p.id, ...(values?.apiToken ? { apiToken: values.apiToken } : {}), ...(values?.transactionPin ? { transactionPin: values.transactionPin } : {}) } }); setCredentialInputs((prev) => ({ ...prev, [p.id]: { apiToken: "", transactionPin: "" } })); toast.success("Credentials saved encrypted. Test connection next."); })}>Save credentials</Button>
+      </div>}
+      <div className="flex justify-end"><Button variant="destructive" disabled={busy} onClick={() => { if (window.confirm("Delete provider " + p.name + " and ALL its plan/network mappings? This cannot be undone.")) void run(async () => { await deleteProviderFn({ data: { id: p.id } }); toast.success("Provider deleted"); }); }}><Trash2 />Delete provider</Button></div>
       <dl className="grid gap-4 text-sm sm:grid-cols-3"><div><dt className="text-muted-foreground">Account connection</dt><dd className="font-semibold">{p.connection_status.replaceAll("_", " ")}</dd></div><div><dt className="text-muted-foreground">Last authentication</dt><dd>{p.last_authenticated_at ? new Date(p.last_authenticated_at).toLocaleString("en-NG") : "Not tested"}</dd></div><div><dt className="text-muted-foreground">Customer services</dt><dd>Enabled after connection test</dd></div></dl>
       {p.last_error && <p role="alert" className="text-sm text-destructive">{p.last_error}</p>}
       {(["data", "airtime"] as const).map((service) => <div key={service} className="space-y-3">
