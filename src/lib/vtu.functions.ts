@@ -559,6 +559,9 @@ export const requeryBigisubAirtime = createServerFn({ method: "POST" })
     if (pendingError || !pending) throw new Error("Pending transaction not found.");
     if (!pending.provider_transaction_id) throw new Error("Add the provider's transaction ID from Bigisub transaction history before rechecking.");
     if (pending.status === "successful" || pending.status === "refunded") return { status: pending.status, message: "This transaction is already resolved." };
+    if (pending.last_checked_at && Date.now() - new Date(pending.last_checked_at).getTime() < 30000) {
+      throw new Error("Please wait at least 30 seconds between provider status checks.");
+    }
     const { data: provider } = await supabaseAdmin.from("vtu_providers").select("api_token_encrypted")
       .eq("adapter", "bigisub").maybeSingle();
     const token = decryptProviderSecret(provider?.api_token_encrypted ?? null);
