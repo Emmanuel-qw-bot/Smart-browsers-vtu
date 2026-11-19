@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { getCustomerProducts } from "@/lib/vtu.functions";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { getCustomerProducts, purchaseData } from "@/lib/vtu.functions";
 
 type DataProduct = {
   id: string;
@@ -25,6 +27,29 @@ export function CustomerDataPlans() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const qc = useQueryClient();
+  const [recipientPhone, setRecipientPhone] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handlePurchase() {
+    if (!selected) return;
+    const cleanPhone = recipientPhone.replace(/\\D/g, "");
+    if (cleanPhone.length !== 11 || !cleanPhone.startsWith("0")) {
+      toast.error("Enter a valid Nigerian phone number (e.g. 08012345678).");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await purchaseData({ data: { productId: selected.id, phone: recipientPhone.trim() } });
+      toast.success(res.message);
+      setRecipientPhone("");
+      await qc.invalidateQueries({ queryKey: ["wallet"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Purchase failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -144,7 +169,7 @@ export function CustomerDataPlans() {
       </div>
 
       {selected && (
-        <div className="space-y-3 rounded-2xl border bg-card p-4 shadow-soft">
+        <div className="space-y-4 rounded-2xl border bg-card p-5 shadow-soft">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your selection</p>
@@ -153,12 +178,13 @@ export function CustomerDataPlans() {
             </div>
             <p className="text-xl font-bold">{formatPrice(selected.selling_price_kobo)}</p>
           </div>
-          <button type="button" disabled className="h-12 w-full cursor-not-allowed rounded-xl bg-muted px-4 text-sm font-semibold text-muted-foreground">
-            Data purchases are being prepared
+          <div>
+            <label htmlFor="recipient-phone" className="text-xs font-semibold uppercase text-muted-foreground">Recipient Phone Number</label>
+            <input id="recipient-phone" type="tel" inputMode="tel" placeholder="e.g. 08012345678" value={recipientPhone} onChange={(e) => setRecipientPhone(e.target.value)} className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+          <button type="button" disabled={submitting || !recipientPhone} onClick={handlePurchase} className="h-12 w-full rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
+            {submitting ? "Purchasing Data..." : `Pay ${formatPrice(selected.selling_price_kobo)}`}
           </button>
-          <p className="text-center text-xs text-muted-foreground">
-            We’re verifying the data provider before enabling payments. Your wallet will not be charged.
-          </p>
         </div>
       )}
     </section>
