@@ -209,166 +209,178 @@ function normalizePhone(raw: string): string {
                                 return cleaned;
                                 }
                                 export const purchaseAirtime = createServerFn({ method: "POST" })
-                                  .middleware([requireSupabaseAuth])
-                                    .inputValidator((input) =>
-                                        z.object({
-                                              networkId: z.number().int().positive(),
-                                                    networkName: z.string().min(1),
-                                                          phone: z.string().min(10).max(15),
-                                                                amountNaira: z.number().int().min(50).max(10000),
-                                                                    }).parse(input)
-                                                                      )
-                                                                        .handler(async ({ data, context }) => {
-                                                                            const formattedPhone = normalizePhone(data.phone);
-                                                                                if (!/^0\d{10}$/.test(formattedPhone)) {
-                                                                                      throw new Error("Invalid Nigerian phone number. Example: 08012345678");
-                                                                                          }
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    networkId: z.number().int().positive(),
+    networkName: z.string().min(1),
+    phone: z.string().min(10).max(15),
+    amountNaira: z.number().int().min(50).max(10000,
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const phone = normalizePhone(data.phone);
+    if (!/^0\\d{10}$/.test(phone)) throw new Error("Invalid Nigerian phone number. Example: 08012345678");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-
-const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    // Fail closed: an authenticated provider connection alone never authorizes purchases.
-    const { data: serviceMapping, error: mappingError } = await supabaseAdmin
+    const { data: mappings, error: mappingError } = await supabaseAdmin
       .from("vtu_products")
-      .select("id, provider_id, vtu_providers!inner(enabled, airtime_enabled, adapter)")
+      .select("id, provider_id, network_id, network_name, min_amount_kobo, max_amount_kobo, vtu_providers!inner(enabled, airtime_enabled, adapter)")
       .eq("service", "airtime")
-      .eq("network_id", data.networkId)
+      .eq("network_name", data.networkName)
       .eq("active", true)
-      .eq("archived", false)
-      .maybeSingle();
+      .eq("archived", false);
 
+    const eligible = (mappings ?? []).filter((row) => {
+      const p = row.vtu_providers as { enabled: boolean; airtime_enabled: boolean; adapter: string } | null;
+      return p?.enabled && p.airtime_enabled && (p.adapter === "bigisub" || p.adapter === "arewabundle");
+    });
+    const serviceMapping = eligible.find((row) => (row.vtu_providers as { adapter: string }).adapter === "bigisub")
+      ?? eligible.find((row) => (row.vtu_providers as { adapter: string }).adapter === "arewabundle");
     const providerSettings = serviceMapping?.vtu_providers as
       | { enabled: boolean; airtime_enabled: boolean; adapter: string }
       | null;
 
-    if (mappingError || !serviceMapping || !providerSettings?.enabled ||
-        !providerSettings.airtime_enabled || providerSettings.adapter !== "arewabundle") {
+    if (mappingError || !serviceMapping || !providerSettings) {
       throw new Error("Airtime purchases are not enabled for this network yet. Your wallet has not been charged.");
     }
-
     const amountKobo = data.amountNaira * 100;
+    if ((serviceMapping.min_amount_kobo && amountKobo < serviceMapping.min_amount_kobo) ||
+        (serviceMapping.max_amount_kobo && amountKobo > serviceMapping.max_amount_kobo)) {
+      throw new Error("This amount is outside the provider's configured limits. Your wallet has not been charged.");
+    }
 
-        // Check customer's wallet balance
-            const { data: wallet, error: walletError } = await supabaseAdmin
-                  .from("wallets")
-                        .select("balance_kobo")
-                              .eq("user_id", context.userId)
-                                    .single();
+    const purchaseRef = `AIR-${crypto.randomUUID()}`;
+    const { error: debitError } = await supabaseAdmin.rpc("wallet_post", {
+      _user_id: context.userId,
+      _category: "purchase",
+      _amount_kobo: -amountKobo,
+      _reference: purchaseRef,
+      _description: `Airtime: ₦${data.amountNaira} to ${phone} (${data.networkName})`,
+    });
+    if (debitError) throw new Error("Wallet debit failed. No provider request was sent.");
 
-                                        if (walletError || !wallet || wallet.balance_kobo < amountKobo) {
-                                              throw new Error(`Insufficient wallet balance. You need ₦${data.amountNaira} to purchase.`);
-                                                  }
+    const refund = async (reason: string) => {
+      const { error } = await supabaseAdmin.rpc("wallet_post", {
+        _user_id: context.userId,
+        _category: "refund",
+        _amount_kobo: amountKobo,
+        _reference: `refund:${purchaseRef}`,
+        _description: `Refund: ${reason}`,
+      });
+      if (error) throw new Error(`Refund could not be posted automatically. Contact support with reference ${purchaseRef}.`);
+    };
 
-                                                      // Atomically debit wallet
-                                                          const purchaseRef = `Airtime_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-                                                              const { error: debitError } = await supabaseAdmin.rpc("wallet_post", {
-                                                                    _user_id: context.userId,
-                                                                          _category: "purchase",
-                                                                                _amount_kobo: -amountKobo,
-                                                                                      _reference: purchaseRef,
-                                                                                            _description: `Airtime: ₦${data.amountNaira} to ${data.phone} (${data.networkName})`,
-                                                                                                });
-if (debitError) {
-          throw new Error("Could not debit wallet. Please try again.");
-              }
+    if (providerSettings.adapter === "bigisub") {
+      const token = process.env["BIGISUB_API_TOKEN"];
+      const pin = process.env["BIGISUB_TRANSACTION_PIN"];
+      if (!token || !pin) {
+        await refund("Bigisub credentials missing before request");
+        throw new Error("Bigisub is not configured. Wallet debit was reversed.");
+      }
+      const network = ({ MTN: 1, GLO: 2, Airtel: 3, "9mobile": 4 } as Record<string, number>)[data.networkName];
+      if (!network) {
+        await refund("Unsupported Bigisub network name");
+        throw new Error("Selected network is not supported by Bigisub. Wallet debit was reversed.");
+      }
+      try {
+        const response = await fetch("https://api.bigisub.ng/api/v2/vtu/airtime/purchase/", {
+          method: "POST",
+          redirect: "error",
+          signal: AbortSignal.timeout(25000),
+          headers: {
+            Authorization: `Token ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            network,
+            phone_number: phone,
+            amount: String(data.amountNaira),
+            airtime_type: "vtu",
+            pin,
+          }),
+        });
+        const body = await response.json().catch(() => null) as {
+          success?: boolean;
+          data?: { transaction_id?: string; reference?: string; status?: string };
+          message?: string;
+        } | null;
+        if (response.ok && body?.success === true && body.data?.status === "successful") {
+          return {
+            success: true,
+            message: `₦${data.amountNaira} airtime request succeeded for ${phone}. Provider reference: ${body.data.transaction_id ?? body.data.reference ?? "received"}`,
+            reference: purchaseRef,
+            providerReference: body.data.transaction_id ?? body.data.reference ?? null,
+          };
+        }
+        if (body?.data?.status === "processing") {
+          throw new Error(`PENDING: Bigisub transaction is processing. Do not retry. Reference: ${body.data.transaction_id ?? purchaseRef}`);
+        }
+        if (body?.data?.status === "failed" || (!response.ok && response.status >= 400 && response.status < 500)) {
+          await refund(body?.message ?? `Bigisub rejected request (HTTP ${response.status})`);
+          throw new Error(`REFUNDED: ${body?.message ?? "Bigisub rejected the airtime request. Wallet debit was reversed."}`);
+        }
+        throw new Error(`PENDING: Bigisub returned an uncertain result. Do not retry. Reference: ${body?.data?.transaction_id ?? purchaseRef}`);
+      } catch (error) {
+        if (error instanceof Error && (error.message.startsWith("REFUNDED:") || error.message.startsWith("PENDING:"))) throw error;
+        throw new Error(`PENDING: Bigisub response uncertain; wallet not automatically refunded. Do not retry. Reference: ${purchaseRef}`);
+      }
+    }
 
-                  // Call Arewabundle Topup API via secure Gateway
-                      const gatewayKey = process.env["LOVABLE_API_KEY"];
-                          const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
+    const gatewayKey = process.env["LOVABLE_API_KEY"];
+    const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
+    if (!gatewayKey || !connectionKey) {
+      await refund("Arewabundle credentials missing before request");
+      throw new Error("Arewabundle is not configured. Wallet debit was reversed.");
+    }
+    try {
+      const authRes = await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user", {
+        method: "POST",
+        redirect: "error",
+        signal: AbortSignal.timeout(15000),
+        headers: {
+          Authorization: `Bearer ${gatewayKey}`,
+          "X-Connection-Api-Key": connectionKey,
+          Accept: "application/json",
+        },
+      });
+      const authData = await authRes.json().catch(() => null) as { AccessToken?: string } | null;
+      if (!authRes.ok || !authData?.AccessToken) {
+        await refund("Arewabundle authentication failed before airtime request");
+        throw new Error("REFUNDED: Could not authenticate with Arewabundle. Wallet debit was reversed.");
+      }
+      const response = await fetch("https://api.arewabundle.com.ng/api/topup", {
+        method: "POST",
+        redirect: "error",
+        signal: AbortSignal.timeout(30000),
+        headers: {
+          Authorization: `Token ${authData.AccessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          network: data.networkId,
+          phone,
+          plan_type: "VTU",
+          bypass: false,
+          amount: data.amountNaira,
+          "request-id": purchaseRef,
+        }),
+      });
+      const body = await response.json().catch(() => null) as { status?: string; message?: string } | null;
+      if (response.ok && body?.status === "success") {
+        return { success: true, message: `₦${data.amountNaira} airtime request succeeded for ${phone}.`, reference: purchaseRef };
+      }
+      if (body?.status === "fail") {
+        await refund(body.message ?? "Arewabundle reported failure");
+        throw new Error(`REFUNDED: ${body.message ?? "Arewabundle failed the request. Wallet debit was reversed."}`);
+      }
+      throw new Error(`PENDING: Provider response uncertain. Do not retry. Reference: ${purchaseRef}`);
+    } catch (error) {
+      if (error instanceof Error && (error.message.startsWith("REFUNDED:") || error.message.startsWith("PENDING:"))) throw error;
+      throw new Error(`PENDING: Airtime outcome uncertain. Wallet not automatically refunded. Do not retry. Reference: ${purchaseRef}`);
+    }
+  });
 
-                              if (!gatewayKey || !connectionKey) {
-                                    // Refund if connector credentials are not linked
-                                          await supabaseAdmin.rpc("wallet_post", {
-                                                  _user_id: context.userId,
-                                                          _category: "refund",
-                                                                  _amount_kobo: amountKobo,
-                                                                          _reference: `refund:${purchaseRef}`,
-                                                                                  _description: `Refund: Provider credentials missing`,
-                                                                                        });
-                                                                                              throw new Error("VTU provider is currently offline. Your wallet has not been charged.");
-                                                                                                  }
-        try {
-                  // 1. Get fresh AccessToken from Arewabundle
-                        const authRes = await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user", {
-                                method: "POST",
-                                        signal: AbortSignal.timeout(15000),
-                                                headers: {
-                                                          Authorization: `Bearer ${gatewayKey}`,
-                                                                    "X-Connection-Api-Key": connectionKey,
-                                                                              Accept: "application/json",
-                                                                                      },
-                                                                                            });
-                                                                                                  const authData = (await authRes.json().catch(() => null)) as { AccessToken?: string } | null;
-                                                                                                        const accessToken = authData?.AccessToken;
-
-                                                                                                              if (!authRes.ok || !accessToken) {
-                                                                                                                      await supabaseAdmin.rpc("wallet_post", {
-                                                                                                                                _user_id: context.userId,
-                                                                                                                                          _category: "refund",
-                                                                                                                                                    _amount_kobo: amountKobo,
-                                                                                                                                                              _reference: `refund:${purchaseRef}`,
-                                                                                                                                                                        _description: "Refund: Could not obtain provider access token",
-                                                                                                                                                                                });
-                                                                                                                                                                                        throw new Error("Could not authenticate with provider. Your wallet has been refunded.");
-                                                                                                                                                                                              }
-
-                                                                                                                                                                                                    // 2. Dispatch topup with the required Authorization: Token header
-                                                                                                                                                                                                          const response = await fetch("https://api.arewabundle.com.ng/api/topup", {
-                                                                                                                                                                                                                  method: "POST",
-                                                                                                                                                                                                                          signal: AbortSignal.timeout(30000),
-                                                                                                                                                                                                                                  headers: {
-                                                                                                                                                                                                                                            Authorization: `Token ${accessToken}`,
-                                                                                                                                                                                                                                                      "Content-Type": "application/json",
-                                                                                                                                                                                                                                                                Accept: "application/json",
-                                                                                                                                                                                                                                                                        },
-                                                                                                                                                                                                                                                                                body: JSON.stringify({
-                                                                                                                                                                                                                                                                                      network: data.networkId,
-                                                                                                                                                                                                                                                                                        phone: formattedPhone,
-                                                                                                                                                                                                                                                                                          plan_type: "VTU",
-                                                                                                                                                                                                                                                                                            bypass: false,
-                                                                                                                                                                                                                                                                                              amount: data.amountNaira,
-                                                                                                                                                                                                                                                                                                "request-id": purchaseRef,
-                                                                                                                                                                                                                                                                                                })
-                                                                                                                                                                                                                                                                                                                                      });
-                                                                                                                                                                                                                                                                                                                                            const responseBody = (await response.json().catch(() => null)) as { status?: string; message?: string } | null;
-                                                                                                                                                                                                                                                                                                                                                  const isSuccess = response.ok && responseBody?.status === "success";
-
-                                                                                                                                                                                                                                                                                                                                                        if (!isSuccess) {
-                                                                                                                                                                                                                                                                                                                                                                const msg = responseBody?.message || `Provider topup failed (${response.status})`;
-                                                                                                                                                                                                                                                                                                                                                                        await supabaseAdmin.rpc("wallet_post", {
-                                                                                                                                                                                                                                                                                                                                                                                  _user_id: context.userId,
-                                                                                                                                                                                                                                                                                                                                                                                            _category: "refund",
-                                                                                                                                                                                                                                                                                                                                                                                                      _amount_kobo: amountKobo,
-                                                                                                                                                                                                                                                                                                                                                                                                                _reference: `refund:${purchaseRef}`,
-                                                                                                                                                                                                                                                                                                                                                                                                                          _description: `Refund: ${msg}`,
-                                                                                                                                                                                                                                                                                                                                                                                                                                  });
-                                                                                                                                                                                                                                                                                                                                                                                                                                          throw new Error(msg);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                }
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                      return {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                              success: true,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                      message: `₦${data.amountNaira} airtime has been sent to ${data.phone}!`,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                              reference: purchaseRef,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    };
-
-                                      } catch (err) {
-                                            // A timeout or lost connection does not prove the provider failed.
-                                            // Keep the debit for manual reconciliation; never auto-refund an ambiguous outcome.
-                                            if (err instanceof Error && err.message.includes("Refund:")) {
-                                              throw err;
-                                            }
-                                            throw new Error(
-                                              "Your request may still be processing. Your wallet has not been automatically refunded. Contact support with reference " +
-                                                purchaseRef + " so the provider transaction can be checked."
-                                            );
-                                          }
-                                        });                                                            
-
-/**
- * Arewabundle data purchase.
- * Fail-closed: both provider switches must be enabled by an administrator.
- * Unknown/timeout outcomes are deliberately NOT refunded automatically.
- */
 export const purchaseData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({
