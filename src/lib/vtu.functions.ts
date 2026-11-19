@@ -521,8 +521,8 @@ export const registerPendingFromWalletReference = createServerFn({ method: "POST
       .select("user_id,amount_kobo,description,reference").eq("reference", data.reference).eq("category", "purchase").single();
     if (ledgerError || !ledger) throw new Error("Purchase ledger reference not found.");
     if (!ledger.description.startsWith("Airtime:")) throw new Error("This reference is not an airtime purchase.");
-    const phoneMatch = ledger.description.match(/to (0\\d{10})/);
-    const networkMatch = ledger.description.match(/\\(([^)]+)\\)$/);
+    const phoneMatch = ledger.description.match(/to (0\d{10})/);
+    const networkMatch = ledger.description.match(/\(([^)]+)\)$/);
     if (!phoneMatch || !networkMatch) throw new Error("Could not read recipient/network from ledger description.");
     const { error: insertError } = await supabaseAdmin.from("bigisub_airtime_pending").upsert({
       reference: ledger.reference, user_id: ledger.user_id, network_name: networkMatch[1], phone: phoneMatch[1],
@@ -535,7 +535,7 @@ export const registerPendingFromWalletReference = createServerFn({ method: "POST
 
 export const attachBigisubTransactionId = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ reference: z.string().min(1), providerTransactionId: z.string().min(2).max(100 }).parse(input))
+  .inputValidator((input) => z.object({ reference: z.string().min(1), providerTransactionId: z.string().min(2).max(100) }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: admin, error } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
     if (error || !admin) throw new Error("Administrator permission required.");
