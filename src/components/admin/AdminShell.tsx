@@ -40,6 +40,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
           {open ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
         <span className="font-semibold">Admin</span>
+        <Link to="/app/$section" params={{ section: "account" }}
+          className="ml-auto inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition hover:bg-muted">
+          ← Back to Customer App
+        </Link>
       </header>
       <div className="lg:ml-72">
         <div className="mx-4 mt-4 flex items-start gap-2 rounded-xl bg-charcoal p-3 text-xs text-charcoal-foreground lg:mx-8">
