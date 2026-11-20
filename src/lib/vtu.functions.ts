@@ -388,7 +388,7 @@ function normalizePhone(raw: string): string {
       try {
         const response = await fetch("https://api.bigisub.ng/api/v2/vtu/airtime/purchase/", {
           method: "POST",
-          redirect: "error",
+          redirect: "manual",
           signal: AbortSignal.timeout(25000),
           headers: {
             Authorization: `Token ${token}`,
