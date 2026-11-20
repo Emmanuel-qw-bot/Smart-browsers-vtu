@@ -186,7 +186,7 @@ export const testProviderConnection = createServerFn({ method: "POST" })
         try {
           const response = await fetch("https://api.bigisub.ng/api/v2/financial/wallet/balance/", {
             method: "GET",
-            redirect: "error",
+            redirect: "manual",
             signal: AbortSignal.timeout(15000),
             headers: { Authorization: `Token ${token}`, Accept: "application/json" },
           });
