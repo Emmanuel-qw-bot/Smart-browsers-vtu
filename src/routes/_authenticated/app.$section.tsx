@@ -84,8 +84,8 @@ function SectionPage() {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 animate-rise">
       <DashboardWelcome />
-      <CustomerAnnouncements />
       <BalanceCard />
+      <CustomerAnnouncements />
       <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
         {quick.map((q) => (
           <Link key={q.slug} to="/app/$section" params={{ section: q.slug }} className="flex flex-col items-center gap-2 rounded-2xl bg-card p-3 text-center text-[11px] font-medium shadow-soft transition active:scale-95">
