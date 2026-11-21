@@ -9,17 +9,17 @@ export function BalanceCard({ showFund = true }: { showFund?: boolean }) {
   const [visible, setVisible] = useState(false);
   const balanceText = isLoading ? "…" : error ? "₦ —" : formatNaira(data ?? 0);
   return (
-    <div className="rounded-3xl bg-brand p-6 text-primary-foreground shadow-brand">
+    <div className="rounded-3xl bg-brand p-5 text-primary-foreground shadow-brand">
       <div className="flex items-center justify-between gap-3">
         <p className="flex items-center gap-2 text-sm opacity-85">Wallet balance</p>
         <button type="button" onClick={() => setVisible((v) => !v)} aria-label={visible ? "Hide wallet balance" : "Show wallet balance"} aria-pressed={visible} className="rounded-lg p-2 hover:bg-white/10">
           {visible ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
         </button>
       </div>
-      <p className="mt-2 font-display text-4xl font-bold">{visible ? balanceText : "****"}</p>
+      <p className="mt-2 font-display text-3xl font-bold">{visible ? balanceText : "****"}</p>
       <p className="mt-1 text-xs opacity-75">Spend on data and airtime. Wallet funds can't be withdrawn.</p>
       {showFund && (
-        <Link to="/app/$section" params={{ section: "wallet" }} className="mt-5 inline-block rounded-xl bg-card px-4 py-2.5 text-sm font-semibold text-primary-deep">View wallet</Link>
+        <Link to="/app/$section" params={{ section: "wallet" }} className="mt-4 inline-block rounded-xl bg-card px-4 py-2 text-sm font-semibold text-primary-deep">View wallet</Link>
       )}
     </div>
   );
