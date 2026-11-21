@@ -88,7 +88,7 @@ function SectionPage() {
         ))}
       </div>
       <h2 className="font-display text-lg font-semibold">Recent transactions</h2>
-      <TransactionList limit={5} />
+      <TransactionList limit={2} />
     </PageScaffold>
   );
 }
