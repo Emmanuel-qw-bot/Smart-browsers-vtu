@@ -30,19 +30,26 @@ export function CustomerDataPlans() {
   const qc = useQueryClient();
   const [recipientPhone, setRecipientPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
 
-  async function handlePurchase() {
+  function handlePurchase() {
     if (!selected) return;
-    const cleanPhone = recipientPhone.replace(/\\D/g, "");
+    const cleanPhone = recipientPhone.replace(/\D/g, "");
     if (cleanPhone.length !== 11 || !cleanPhone.startsWith("0")) {
       toast.error("Enter a valid Nigerian phone number (e.g. 08012345678).");
       return;
     }
+    setConfirmationOpen(true);
+  }
+
+  async function confirmPurchase() {
+    if (!selected || !confirmationOpen || submitting) return;
     setSubmitting(true);
     try {
       const res = await purchaseData({ data: { productId: selected.id, phone: recipientPhone.trim() } });
       toast.success(res.message);
       setRecipientPhone("");
+      setConfirmationOpen(false);
       await qc.invalidateQueries({ queryKey: ["wallet"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Purchase failed.");
@@ -183,10 +190,31 @@ export function CustomerDataPlans() {
             <input id="recipient-phone" type="tel" inputMode="tel" placeholder="e.g. 08012345678" value={recipientPhone} onChange={(e) => setRecipientPhone(e.target.value)} className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
           <button type="button" disabled={submitting || !recipientPhone} onClick={handlePurchase} className="h-12 w-full rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
-            {submitting ? "Purchasing Data..." : `Pay ${formatPrice(selected.selling_price_kobo)}`}
+            {submitting ? "Processing..." : "Review purchase"}
           </button>
         </div>
       )}
     </section>
+      {confirmationOpen && selected && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="data-purchase-confirm-title" className="w-full max-w-md space-y-4 rounded-2xl border bg-card p-5 shadow-2xl">
+            <h2 id="data-purchase-confirm-title" className="text-lg font-bold">Confirm your data purchase</h2>
+            <div className="space-y-2 rounded-xl bg-muted/50 p-4 text-sm">
+              <p><span className="text-muted-foreground">Network:</span> <strong>{selected.network_name}</strong></p>
+              <p><span className="text-muted-foreground">Plan:</span> <strong>{selected.plan_name}</strong></p>
+              <p><span className="text-muted-foreground">Recipient:</span> <strong>{recipientPhone}</strong></p>
+              <p><span className="text-muted-foreground">Price:</span> <strong>{formatPrice(selected.selling_price_kobo)}</strong></p>
+            </div>
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+              <p className="font-semibold text-amber-700 dark:text-amber-300">⚠️ Check the phone number carefully.</p>
+              <p className="mt-1">Data sent to a wrong number may not be recoverable. Smart Browsers cannot guarantee reversal of an incorrect recipient number.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" disabled={submitting} onClick={() => setConfirmationOpen(false)} className="rounded-xl border px-4 py-3 font-medium disabled:opacity-50">Cancel</button>
+              <button type="button" disabled={submitting} onClick={confirmPurchase} className="rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{submitting ? "Processing..." : `Confirm & Pay ${formatPrice(selected.selling_price_kobo)}`}</button>
+            </div>
+          </div>
+        </div>
+      )}
   );
 }
