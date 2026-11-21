@@ -92,8 +92,7 @@ type Product = {
     }
   }
 
-  async function handleDataBuy(e: React.FormEvent) {
-    e.preventDefault();
+  function handleDataBuy() {
     if (!selectedDataPlan) {
       toast.error("Select a data plan first.");
       return;
@@ -258,7 +257,7 @@ type Product = {
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   )}
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
       {service === "data" && (
-        <form onSubmit={handleDataBuy} className="rounded-2xl border bg-card p-5 shadow-soft space-y-4">
+        <div className="rounded-2xl border bg-card p-5 shadow-soft space-y-4">
           <div>
             <p className="font-semibold">Your selected data plan</p>
             <p className="text-sm text-muted-foreground">
@@ -270,11 +269,11 @@ type Product = {
             <input id="data-recipient-phone" value={dataRecipient} onChange={(e) => setDataRecipient(e.target.value)} inputMode="tel" autoComplete="tel" placeholder="08012345678" className="mt-2 w-full rounded-xl border bg-background px-3 py-3" />
             <p className="mt-1 text-xs text-muted-foreground">Check the number carefully before submitting. Data sent to a wrong number may not be recoverable.</p>
           </div>
-          <button type="submit" disabled={!purchasesAvailable || !selectedDataPlan || submitting} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="button" onClick={handleDataBuy} disabled={!purchasesAvailable || !selectedDataPlan || submitting} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
             {submitting ? "Processing..." : purchasesAvailable ? "Buy data" : "Data purchases coming soon"}
           </button>
           {!purchasesAvailable && <p className="text-xs text-muted-foreground">Testing mode: selecting a plan will not charge your wallet.</p>}
-        </form>
+        </div>
       )}
       {confirmation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="presentation">
