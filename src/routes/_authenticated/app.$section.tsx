@@ -9,6 +9,7 @@ import { CustomerSupport, customerSupportQuery } from "@/components/customer/Cus
 import { CustomerWeekendRush, customerWeekendRushQuery } from "@/components/customer/CustomerWeekendRush";
 import { CustomerAnnouncements, customerAnnouncementsQuery } from "@/components/customer/CustomerAnnouncements";
 import { CustomerBadges } from "@/components/customer/CustomerBadges";
+import { DashboardWelcome } from "@/components/customer/DashboardWelcome";
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: async ({ params, context }) => {
     const item = findNav(customerNav, params.section);
@@ -81,7 +82,8 @@ function SectionPage() {
                                               }
   const quick = customerNav.filter((n) => ["buy-data", "buy-airtime", "airtime-to-cash", "wallet", "rewards", "referrals", "weekend-rush", "support"].includes(n.slug));
   return (
-    <PageScaffold item={item} live>
+    <div className="mx-auto w-full max-w-5xl space-y-5 animate-rise">
+      <DashboardWelcome />
       <CustomerAnnouncements />
       <BalanceCard />
       <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
@@ -94,6 +96,6 @@ function SectionPage() {
       </div>
       <h2 className="font-display text-lg font-semibold">Recent transactions</h2>
       <TransactionList limit={2} />
-    </PageScaffold>
+    </div>
   );
 }
