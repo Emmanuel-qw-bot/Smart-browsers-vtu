@@ -73,6 +73,10 @@ type Product = {
     setSubmitting(true);
     try {
       if (confirmation === "data" && selectedDataPlan) {
+        if (!purchasesAvailable) {
+          toast.error("Data purchases are still being tested. Your wallet has not been charged.");
+          return;
+        }
         const result = await purchaseData({ data: { productId: selectedDataPlan.id, phone: dataRecipient.trim() } });
         toast.success(result.message);
         setDataRecipient("");
@@ -99,10 +103,6 @@ type Product = {
     }
     if (dataRecipient.replace(/\D/g, "").length < 10) {
       toast.error("Enter a valid Nigerian phone number.");
-      return;
-    }
-    if (!purchasesAvailable) {
-      toast.error("Data purchases are still being tested. Your wallet has not been charged.");
       return;
     }
     setConfirmation("data");
@@ -269,7 +269,7 @@ type Product = {
             <input id="data-recipient-phone" value={dataRecipient} onChange={(e) => setDataRecipient(e.target.value)} inputMode="tel" autoComplete="tel" placeholder="08012345678" className="mt-2 w-full rounded-xl border bg-background px-3 py-3" />
             <p className="mt-1 text-xs text-muted-foreground">Check the number carefully before submitting. Data sent to a wrong number may not be recoverable.</p>
           </div>
-          <button type="button" onClick={handleDataBuy} disabled={!purchasesAvailable || !selectedDataPlan || submitting} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="button" onClick={handleDataBuy} disabled={!selectedDataPlan || submitting} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50">
             {submitting ? "Processing..." : purchasesAvailable ? "Buy data" : "Data purchases coming soon"}
           </button>
           {!purchasesAvailable && <p className="text-xs text-muted-foreground">Testing mode: selecting a plan will not charge your wallet.</p>}
@@ -295,7 +295,7 @@ type Product = {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button type="button" disabled={submitting} onClick={() => setConfirmation(null)} className="rounded-xl border px-4 py-3 font-medium disabled:opacity-50">Cancel</button>
-              <button type="button" disabled={submitting} onClick={confirmPurchase} className="rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{submitting ? "Processing…" : "Confirm & Pay"}</button>
+              <button type="button" disabled={submitting || (confirmation === "data" && !purchasesAvailable)} onClick={confirmPurchase} className="rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{submitting ? "Processing…" : confirmation === "data" && !purchasesAvailable ? "Unavailable" : "Confirm & Pay"}</button>
             </div>
           </div>
         </div>
