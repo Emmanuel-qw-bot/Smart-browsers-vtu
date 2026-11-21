@@ -10,6 +10,7 @@ import { CustomerWeekendRush, customerWeekendRushQuery } from "@/components/cust
 import { CustomerAnnouncements, customerAnnouncementsQuery } from "@/components/customer/CustomerAnnouncements";
 import { CustomerBadges } from "@/components/customer/CustomerBadges";
 import { DashboardWelcome } from "@/components/customer/DashboardWelcome";
+import { CustomerAirtimeCash } from "@/components/customer/CustomerAirtimeCash";
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: async ({ params, context }) => {
     const item = findNav(customerNav, params.section);
@@ -68,6 +69,8 @@ function SectionPage() {
       </PageScaffold>
     );
   }
+
+  if (slug === "airtime-to-cash") return <PageScaffold item={item} live><CustomerAirtimeCash /></PageScaffold>;
 
   if (slug === "buy-airtime") {
                               return (
