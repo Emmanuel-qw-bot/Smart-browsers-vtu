@@ -59,6 +59,7 @@ type Product = {
             const [submitting, setSubmitting] = useState(false);
   const [selectedDataPlan, setSelectedDataPlan] = useState<Product | null>(null);
   const [dataRecipient, setDataRecipient] = useState("");
+  const [confirmation, setConfirmation] = useState<"data" | "airtime" | null>(null);
 
               const NETWORKS = [
                   { id: 1, name: "MTN", color: "bg-amber-400 text-black border-amber-500" },
@@ -67,7 +68,31 @@ type Product = {
                               { id: 4, name: "9mobile", color: "bg-lime-600 text-white border-lime-700" },
                                 ];
 
-                                  async function handleDataBuy(e: React.FormEvent) {
+                                  async function confirmPurchase() {
+    if (!confirmation || submitting) return;
+    setSubmitting(true);
+    try {
+      if (confirmation === "data" && selectedDataPlan) {
+        const result = await purchaseData({ data: { productId: selectedDataPlan.id, phone: dataRecipient.trim() } });
+        toast.success(result.message);
+        setDataRecipient("");
+        setSelectedDataPlan(null);
+      } else if (confirmation === "airtime") {
+        const res = await purchaseAirtime({ data: { networkId, networkName, phone: phone.trim(), amountNaira: parseInt(amount, 10) } });
+        toast.success(res.message);
+        setPhone("");
+      }
+      setConfirmation(null);
+      await qc.invalidateQueries({ queryKey: ["wallet"] });
+      await qc.invalidateQueries({ queryKey: ["admin", "ledger"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Purchase needs review.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDataBuy(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedDataPlan) {
       toast.error("Select a data plan first.");
@@ -81,21 +106,7 @@ type Product = {
       toast.error("Data purchases are still being tested. Your wallet has not been charged.");
       return;
     }
-    setSubmitting(true);
-    try {
-      const result = await purchaseData({
-        data: { productId: selectedDataPlan.id, phone: dataRecipient.trim() },
-      });
-      toast.success(result.message);
-      setDataRecipient("");
-      setSelectedDataPlan(null);
-      await qc.invalidateQueries({ queryKey: ["wallet"] });
-      await qc.invalidateQueries({ queryKey: ["admin", "ledger"] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Data purchase needs review.");
-    } finally {
-      setSubmitting(false);
-    }
+    setConfirmation("data");
   }
 
   async function handleBuy(e: React.FormEvent) {
@@ -109,21 +120,8 @@ type Product = {
                                                                         toast.error("Enter a valid Nigerian phone number (e.g. 08012345678).");
                                                                               return;
                                                                                   }
-                                                                                      setSubmitting(true);
-                                                                                          try {
-                                                                                                const res = await purchaseAirtime({
-                                                                                                        data: { networkId, networkName, phone: phone.trim(), amountNaira: numAmount },
-                                                                                                              });
-                                                                                                                    toast.success(res.message);
-                                                                                                                          setPhone("");
-                                                                                                                                await qc.invalidateQueries({ queryKey: ["wallet"] });
-                                                                                                                                      await qc.invalidateQueries({ queryKey: ["admin", "ledger"] });
-                                                                                                                                          } catch (err) {
-                                                                                                                                                toast.error(err instanceof Error ? err.message : "Purchase failed.");
-                                                                                                                                                    } finally {
-                                                                                                                                                          setSubmitting(false);
-                                                                                                                                                              }
-                                                                                                                                                                }
+    setConfirmation("airtime");
+  }
                                                                                                                                                             
                                                                                                                                                                             return (
                                                                                                                                                                                 <div className="space-y-5">
@@ -278,6 +276,31 @@ type Product = {
           {!purchasesAvailable && <p className="text-xs text-muted-foreground">Testing mode: selecting a plan will not charge your wallet.</p>}
         </form>
       )}
-</div>
+      {confirmation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="purchase-confirm-title" className="w-full max-w-md space-y-4 rounded-2xl border bg-card p-5 shadow-2xl">
+            <h2 id="purchase-confirm-title" className="text-lg font-bold">Confirm your purchase</h2>
+            <div className="space-y-2 rounded-xl bg-muted/50 p-4 text-sm">
+              <p><span className="text-muted-foreground">Network:</span> <strong>{confirmation === "data" ? selectedDataPlan?.network_name : networkName}</strong></p>
+              {confirmation === "data" ? (
+                <p><span className="text-muted-foreground">Plan:</span> <strong>{selectedDataPlan?.plan_name}</strong></p>
+              ) : (
+                <p><span className="text-muted-foreground">Airtime:</span> <strong>₦{parseInt(amount || "0", 10).toLocaleString("en-NG")}</strong></p>
+              )}
+              <p><span className="text-muted-foreground">Recipient:</span> <strong>{confirmation === "data" ? dataRecipient : phone}</strong></p>
+              <p><span className="text-muted-foreground">Amount:</span> <strong>{confirmation === "data" ? formatPrice(selectedDataPlan?.selling_price_kobo ?? null) : `₦${parseInt(amount || "0", 10).toLocaleString("en-NG")}`}</strong></p>
+            </div>
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+              <p className="font-semibold text-amber-700 dark:text-amber-300">⚠️ Check the phone number carefully.</p>
+              <p className="mt-1">Airtime or data sent to a wrong number may not be recoverable. Smart Browsers cannot guarantee reversal of an incorrect recipient number.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" disabled={submitting} onClick={() => setConfirmation(null)} className="rounded-xl border px-4 py-3 font-medium disabled:opacity-50">Cancel</button>
+              <button type="button" disabled={submitting} onClick={confirmPurchase} className="rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{submitting ? "Processing…" : "Confirm & Pay"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+ </div>
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         );
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         }
