@@ -194,7 +194,6 @@ export function CustomerDataPlans() {
           </button>
         </div>
       )}
-    </section>
       {confirmationOpen && selected && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" role="presentation">
           <div role="dialog" aria-modal="true" aria-labelledby="data-purchase-confirm-title" className="w-full max-w-md space-y-4 rounded-2xl border bg-card p-5 shadow-2xl">
@@ -216,5 +215,6 @@ export function CustomerDataPlans() {
           </div>
         </div>
       )}
+    </section>
   );
 }
