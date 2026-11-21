@@ -48,6 +48,7 @@ export const adminNav: NavItem[] = [
   { slug: "security-logs", label: "Security and Activity Logs", icon: ShieldCheck, description: "Admin actions, sign-ins and security events." },
   { slug: "reports", label: "Reports and Profit Analysis", icon: LineChart, description: "Revenue, cost and profit reporting." },
   { slug: "support-settings", label: "Support Settings", icon: Headphones, description: "Support channels, hours and contact details." },
+  { slug: "airtime-cash", label: "Airtime-to-Cash Requests", icon: ArrowLeftRight, description: "Configure conversion rates and verify customer requests." },
   { slug: "platform-settings", label: "Platform Settings", icon: Settings, description: "General platform configuration." },
 ];
 
