@@ -51,6 +51,7 @@ export function CustomerDataPlans() {
       setRecipientPhone("");
       setConfirmationOpen(false);
       await qc.invalidateQueries({ queryKey: ["wallet"] });
+      await qc.invalidateQueries({ queryKey: ["customer-purchase-badges"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Purchase failed.");
     } finally {
