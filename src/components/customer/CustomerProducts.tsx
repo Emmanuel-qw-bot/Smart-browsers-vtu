@@ -88,6 +88,7 @@ type Product = {
       }
       setConfirmation(null);
       await qc.invalidateQueries({ queryKey: ["wallet"] });
+      if (confirmation === "data") await qc.invalidateQueries({ queryKey: ["customer-purchase-badges"] });
       await qc.invalidateQueries({ queryKey: ["admin", "ledger"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Purchase needs review.");
