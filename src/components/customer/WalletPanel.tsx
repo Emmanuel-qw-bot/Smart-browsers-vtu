@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Eye, EyeOff, Info } from "lucide-react";
+import { Eye, EyeOff, Info, Building2, Banknote, LockKeyhole } from "lucide-react";
 import { CATEGORY_LABELS, formatNaira, myTransactionsQuery, myWalletQuery } from "@/lib/wallet";
 
 export function BalanceCard({ showFund = true }: { showFund?: boolean }) {
@@ -51,14 +51,58 @@ export function TransactionList({ limit }: { limit: number }) {
   );
 }
 
+function WalletFundingPreview() {
+  const [selectedBank, setSelectedBank] = useState<"palmpay" | "9psb">("palmpay");
+  const bankOptions = [
+    { id: "palmpay" as const, name: "PalmPay", subtitle: "Payment Point virtual account", icon: Banknote },
+    { id: "9psb" as const, name: "9PSB", subtitle: "Payment Point virtual account", icon: Building2 },
+  ];
+  return (
+    <section className="space-y-4 rounded-3xl border bg-card p-4 shadow-soft sm:p-5">
+      <div>
+        <h2 className="font-display text-lg font-semibold">Fund your wallet</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Choose your preferred bank for the planned Payment Point integration.</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {bankOptions.map((bank) => {
+          const Icon = bank.icon;
+          const selected = selectedBank === bank.id;
+          return (
+            <button key={bank.id} type="button" onClick={() => setSelectedBank(bank.id)} aria-pressed={selected} className={`rounded-2xl border p-4 text-left transition ${selected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:bg-muted/40"}`}>
+              <div className="flex items-center gap-3">
+                <span className="grid size-11 place-items-center rounded-xl bg-muted"><Icon className="size-5" /></span>
+                <div>
+                  <p className="font-semibold">{bank.name}</p>
+                  <p className="text-xs text-muted-foreground">{bank.subtitle}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs font-medium text-muted-foreground">{selected ? "Selected for preview" : "Tap to select"}</p>
+            </button>
+          );
+        })}
+      </div>
+      <div className="rounded-2xl border border-dashed p-4">
+        <div className="flex items-start gap-3">
+          <LockKeyhole className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium">Payment Point isn't connected yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">Your selected option ({selectedBank === "palmpay" ? "PalmPay" : "9PSB"}) is only a preview. No account will be created and no payment can be initiated.</p>
+          </div>
+        </div>
+      </div>
+      <button type="button" disabled className="w-full rounded-xl bg-muted px-4 py-3 text-sm font-semibold text-muted-foreground disabled:cursor-not-allowed">
+        Funding unavailable — gateway not connected
+      </button>
+      <p className="flex items-start gap-2 text-xs text-muted-foreground"><Info className="mt-0.5 size-3.5 shrink-0" />This preview does not accept payment details, create deposits, or change your wallet balance.</p>
+    </section>
+  );
+}
+
 export function WalletPanel() {
   return (
     <div className="space-y-5">
       <BalanceCard showFund={false} />
-      <div className="flex gap-3 rounded-2xl border border-dashed border-gold/60 bg-card p-4 text-sm">
-        <Info className="mt-0.5 size-4 shrink-0 text-gold" />
-        <p><strong>Wallet funding isn't live yet.</strong> Card and bank deposits will open once a payment gateway is connected in a later stage. No payments can be made right now.</p>
-      </div>
+      <WalletFundingPreview />
       <h2 className="font-display text-lg font-semibold">Transaction history</h2>
       <TransactionList limit={100} />
     </div>
