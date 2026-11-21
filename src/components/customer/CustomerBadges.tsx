@@ -3,11 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Award, Medal, Crown, Star, Trophy } from "lucide-react";
 
 const tiers = [
-  { name: "Regular Customer", threshold: 50, reward: "3 GB", icon: Award, color: "border-sky-300 bg-sky-50 text-sky-800" },
-  { name: "Bronze Customer", threshold: 100, reward: "5 GB", icon: Medal, color: "border-orange-300 bg-orange-50 text-orange-800" },
-  { name: "Silver Customer", threshold: 500, reward: "10 GB", icon: Star, color: "border-slate-300 bg-slate-50 text-slate-700" },
-  { name: "Gold Customer", threshold: 1000, reward: "20 GB", icon: Trophy, color: "border-amber-300 bg-amber-50 text-amber-800" },
-  { name: "VIP Customer", threshold: 2000, reward: "30 GB", icon: Crown, color: "border-violet-300 bg-violet-50 text-violet-800" },
+  { name: "Regular Customer", threshold: 50, reward: "3 GB", icon: Award, color: "border-emerald-300 bg-gradient-to-br from-emerald-50 to-green-100 text-emerald-900", iconColor: "bg-emerald-200 text-emerald-800", progressColor: "bg-emerald-500" },
+  { name: "Bronze Customer", threshold: 100, reward: "5 GB", icon: Medal, color: "border-amber-500/50 bg-gradient-to-br from-orange-50 to-amber-100 text-amber-950", iconColor: "bg-amber-200 text-amber-900", progressColor: "bg-amber-600" },
+  { name: "Silver Customer", threshold: 500, reward: "10 GB", icon: Star, color: "border-slate-400/60 bg-gradient-to-br from-slate-50 to-gray-200 text-slate-800", iconColor: "bg-slate-300 text-slate-800", progressColor: "bg-slate-500" },
+  { name: "Gold Customer", threshold: 1000, reward: "20 GB", icon: Trophy, color: "border-yellow-500/60 bg-gradient-to-br from-yellow-50 to-amber-200 text-yellow-950", iconColor: "bg-yellow-300 text-yellow-950", progressColor: "bg-yellow-500" },
+  { name: "VIP Customer", threshold: 2000, reward: "30 GB", icon: Crown, color: "border-violet-400/60 bg-gradient-to-br from-violet-50 to-purple-200 text-violet-950", iconColor: "bg-violet-300 text-violet-950", progressColor: "bg-violet-600" },
 ];
 
 export function CustomerBadges() {
@@ -64,15 +64,15 @@ export function CustomerBadges() {
           const Icon = tier.icon;
           const unlocked = count >= tier.threshold;
           const pct = Math.min(100, (count / tier.threshold) * 100);
-          return <article key={tier.name} className={`rounded-2xl border p-4 ${unlocked ? tier.color : "bg-card"}`}>
+          return <article key={tier.name} className={`rounded-2xl border p-4 shadow-sm transition-colors ${tier.color} ${unlocked ? "ring-1 ring-inset ring-current/10" : "opacity-90"}`}>
             <div className="flex items-center gap-3">
-              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-background/70"><Icon className="size-5" /></span>
+              <span className={`grid size-12 shrink-0 place-items-center rounded-xl shadow-inner ${tier.iconColor}`}><Icon className="size-6" /></span>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center justify-between gap-1"><h3 className="font-semibold">{tier.name}</h3><span className="text-xs font-semibold">{unlocked ? "Unlocked" : `${count} / ${tier.threshold}`}</span></div>
+                <div className="flex flex-wrap items-center justify-between gap-1"><h3 className="font-semibold">{tier.name}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${tier.iconColor}`}>{unlocked ? "Unlocked ✓" : `${count} / ${tier.threshold}`}</span></div>
                 <p className="text-sm opacity-80">{tier.threshold.toLocaleString()} purchases · {tier.reward} reward</p>
               </div>
             </div>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-foreground/10"><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-foreground/10"><div className={`h-full rounded-full ${tier.progressColor} transition-all`} style={{ width: `${pct}%` }} /></div>
           </article>;
         })}
       </div>
