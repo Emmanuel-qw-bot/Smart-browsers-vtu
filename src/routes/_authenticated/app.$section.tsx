@@ -8,6 +8,7 @@ import { CustomerDataPlans } from "@/components/customer/CustomerDataPlans";
 import { CustomerSupport, customerSupportQuery } from "@/components/customer/CustomerSupport";
 import { CustomerWeekendRush, customerWeekendRushQuery } from "@/components/customer/CustomerWeekendRush";
 import { CustomerAnnouncements, customerAnnouncementsQuery } from "@/components/customer/CustomerAnnouncements";
+import { CustomerBadges } from "@/components/customer/CustomerBadges";
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: async ({ params, context }) => {
     const item = findNav(customerNav, params.section);
@@ -43,7 +44,11 @@ function SectionPage() {
         return <PageScaffold item={item} live><WalletPanel /></PageScaffold>;
         }
 
-        if (slug === "transactions") {
+        if (slug === "rewards") {
+        return <PageScaffold item={item} live><CustomerBadges /></PageScaffold>;
+      }
+
+      if (slug === "transactions") {
           return <PageScaffold item={item} live><TransactionList limit={200} /></PageScaffold>;
           }
 
