@@ -11,7 +11,7 @@ DECLARE
   v_ref uuid;
 BEGIN
   IF char_length(v_name) < 2 OR char_length(v_name) > 100 THEN RAISE EXCEPTION 'Please enter your full name'; END IF;
-  IF v_phone !~ '^\\+234[789][01][0-9]{8}$' THEN RAISE EXCEPTION 'Please enter a valid Nigerian phone number'; END IF;
+  IF v_phone !~ '^\+234[789][01][0-9]{8}$' THEN RAISE EXCEPTION 'Please enter a valid Nigerian phone number'; END IF;
   IF EXISTS (SELECT 1 FROM public.profiles WHERE phone=v_phone) THEN RAISE EXCEPTION 'PHONE_TAKEN'; END IF;
   IF EXISTS (SELECT 1 FROM public.profiles WHERE lower(email)=lower(NEW.email)) THEN RAISE EXCEPTION 'EMAIL_TAKEN'; END IF;
   IF v_source NOT IN ('friends','whatsapp','facebook','instagram','tiktok','google_search','other') THEN v_source:='other'; END IF;
