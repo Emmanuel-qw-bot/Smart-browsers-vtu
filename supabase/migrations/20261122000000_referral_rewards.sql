@@ -32,7 +32,7 @@ CREATE TABLE public.referral_reward_settings (
   enabled boolean NOT NULL DEFAULT true,
   required_referrals integer NOT NULL DEFAULT 5 CHECK (required_referrals BETWEEN 1 AND 100),
   minimum_funding_kobo bigint NOT NULL DEFAULT 50000 CHECK (minimum_funding_kobo BETWEEN 50000 AND 100000000),
-  reward_data_mb integer NOT NULL DEFAULT 5000 CHECK (reward_data_mb BETWEEN 100 AND 100000),
+  reward_data_mb integer NOT NULL DEFAULT 5000 CHECK (reward_data_mb BETWEEN 1000 AND 100000 AND reward_data_mb % 1000 = 0),
   updated_at timestamptz NOT NULL DEFAULT now(),
   updated_by uuid REFERENCES auth.users(id) ON DELETE SET NULL
 );
