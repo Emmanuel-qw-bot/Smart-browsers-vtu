@@ -21,7 +21,7 @@ export function CustomerReferrals() {
   const planList:any[]=plans.data??[];
   const options=planList.filter(p=>p.network_name.toLowerCase()===network.toLowerCase());
   const selected=options.find(p=>p.id===productId)??options[0];
-  const count=d?.qualified_count??0;
+  const count=d?.available_count??0;
   const required=d?.required??5;
   const progress=Math.min(100,Math.round((count/required)*100));
 
@@ -46,7 +46,7 @@ export function CustomerReferrals() {
     <section className="rounded-3xl bg-brand p-5 text-primary-foreground shadow-brand">
       <div className="flex items-center gap-2"><Gift className="size-5"/><h2 className="font-display text-xl font-bold">Invite {required} friends. Earn {d.reward_data_mb/1000}GB!</h2></div>
       <p className="mt-2 text-sm opacity-90">Each friend must sign up with your invitation code and successfully fund their wallet with at least {naira(d.minimum_funding_kobo)}. Welcome bonuses and promotional credits don't count.</p>
-      <div className="mt-4 flex justify-between text-sm font-semibold"><span>Qualified referrals</span><span>{count}/{required}</span></div>
+      <div className="mt-4 flex justify-between text-sm font-semibold"><span>Referrals toward next reward</span><span>{count}/{required}</span></div>
       <div className="mt-2 h-3 overflow-hidden rounded-full bg-primary-foreground/20"><div className="h-full rounded-full bg-primary-foreground transition-all" style={{width:progress+"%"}}/></div>
       <p className="mt-2 text-xs opacity-80">{d.available_count??count} qualifying friend(s) available for your next reward claim.</p>
     </section>
@@ -73,6 +73,6 @@ export function CustomerReferrals() {
         </div>}
     </section>
 
-    {(d.claims??[]).length>0&&<section className="rounded-2xl border bg-card p-4 shadow-soft"><h3 className="font-display font-semibold">Reward history</h3><div className="mt-3 space-y-2">{d.claims.map((c:any)=><div key={c.id} className="rounded-xl bg-muted p-3 text-sm"><div className="flex justify-between gap-2"><span>{c.data_mb/1000}GB · {c.network}</span><strong className="capitalize">{c.status}</strong></div><p className="text-xs text-muted-foreground">To ••••{c.recipient_phone.slice(-4)} · {new Date(c.created_at).toLocaleString()}</p>{c.failure_reason&&<p className="mt-1 text-xs text-destructive">{c.failure_reason}</p>}</div>)}</div></section>}
+    {(d.claims??[]).length>0&&<section className="rounded-2xl border bg-card p-4 shadow-soft"><h3 className="font-display font-semibold">Reward history</h3><div className="mt-3 space-y-2">{d.claims.map((c:any)=><div key={c.id} className="rounded-xl bg-muted p-3 text-sm"><div className="flex justify-between gap-2"><span>{c.data_mb/1000}GB · {c.network}</span><strong className="capitalize">{c.status}</strong></div><p className="text-xs text-muted-foreground">To ••••{c.recipient_phone.slice(-4)} · {new Date(c.created_at).toLocaleString()}</p>{c.failure_reason&&<p className="mt-1 text-xs text-destructive">{c.failure_reason}</p>}{c.status==="failed"&&<button disabled={busy} onClick={async()=>{setBusy(true);try{const result=await claim({data:{retryClaimId:c.id}});toast[result.status==="delivered"?"success":"warning"](result.message);await qc.invalidateQueries({queryKey:["my-referral-dashboard"]});}catch(e){toast.error(e instanceof Error?e.message:"Retry failed");}finally{setBusy(false);}}} className="mt-2 rounded-lg border px-3 py-2 text-xs font-medium">Retry failed delivery</button>}</div>)}</div></section>}
   </div>;
 }
