@@ -106,10 +106,11 @@ GRANT EXECUTE ON FUNCTION public.invite_code_referrer_label(text) TO anon,authen
 
 CREATE OR REPLACE FUNCTION public.get_my_referral_dashboard()
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public AS $$
-DECLARE uid uuid:=auth.uid(); s public.referral_reward_settings; q integer; claims jsonb; friends jsonb; cycle integer; unlocked boolean;
+DECLARE uid uuid:=auth.uid(); s public.referral_reward_settings; q integer; total_q integer; claims jsonb; friends jsonb; cycle integer; unlocked boolean;
 BEGIN
   IF uid IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
   SELECT * INTO s FROM public.referral_reward_settings WHERE id=true;
+  SELECT count(*) INTO total_q FROM public.referral_qualifications WHERE referrer_user_id=uid;
   SELECT count(*) INTO q FROM public.referral_qualifications rq WHERE referrer_user_id=uid AND NOT EXISTS (SELECT 1 FROM referral_reward_claim_qualifications used WHERE used.qualification_id=rq.id);
   SELECT coalesce(jsonb_agg(jsonb_build_object('display_name','Friend '||row_number::text,'qualified',qualified,'joined_at',joined_at,'qualified_at',qualified_at) ORDER BY joined_at),'[]'::jsonb)
     INTO friends FROM (
@@ -121,7 +122,7 @@ BEGIN
   SELECT coalesce(max(reward_cycle),0)+1 INTO cycle FROM referral_reward_claims WHERE referrer_user_id=uid;
   unlocked:=s.enabled AND q>=s.required_referrals AND NOT EXISTS(SELECT 1 FROM referral_reward_claims WHERE referrer_user_id=uid AND reward_cycle=cycle);
   SELECT coalesce(jsonb_agg(to_jsonb(rc) ORDER BY rc.created_at DESC),'[]'::jsonb) INTO claims FROM referral_reward_claims rc WHERE rc.referrer_user_id=uid;
-  RETURN jsonb_build_object('enabled',s.enabled,'required',s.required_referrals,'minimum_funding_kobo',s.minimum_funding_kobo,'reward_data_mb',s.reward_data_mb,'qualified_count',q,'friends',friends,'claims',claims,'next_cycle',cycle,'unlocked',unlocked);
+  RETURN jsonb_build_object('enabled',s.enabled,'required',s.required_referrals,'minimum_funding_kobo',s.minimum_funding_kobo,'reward_data_mb',s.reward_data_mb,'qualified_count',total_q,'available_count',q,'friends',friends,'claims',claims,'next_cycle',cycle,'unlocked',unlocked);
 END $$;
 REVOKE EXECUTE ON FUNCTION public.get_my_referral_dashboard() FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.get_my_referral_dashboard() TO authenticated;
@@ -137,7 +138,7 @@ BEGIN
   SELECT count(*) INTO q FROM referral_qualifications WHERE referrer_user_id=uid;
   IF q<s.required_referrals THEN RAISE EXCEPTION 'You have not qualified for the referral reward yet'; END IF;
   SELECT coalesce(max(reward_cycle),0)+1 INTO cycle FROM referral_reward_claims WHERE referrer_user_id=uid;
-  SELECT * INTO product FROM vtu_products WHERE id=_product_id AND service='data' AND active AND NOT archived AND upper(network_name)=upper(_network) AND plan_name ILIKE '%'||s.reward_data_mb::text||'%' LIMIT 1;
+  SELECT * INTO product FROM vtu_products WHERE id=_product_id AND service='data' AND active AND NOT archived AND upper(network_name)=upper(_network) AND plan_name ~* ('(^|[^0-9])'||(s.reward_data_mb/1000)::text||'[[:space:]]*GB([^0-9]|$)') LIMIT 1;
   IF NOT FOUND THEN RAISE EXCEPTION 'The selected reward data plan is not configured'; END IF;
   INSERT INTO referral_reward_claims(referrer_user_id,reward_cycle,data_mb,network,recipient_phone,product_id,status)
   VALUES(uid,cycle,s.reward_data_mb,_network,_phone,_product_id,'reserved') RETURNING id INTO claim_id;
