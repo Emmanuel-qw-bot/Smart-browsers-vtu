@@ -6,7 +6,7 @@ const settingsSchema = z.object({
   enabled: z.boolean(),
   required_referrals: z.number().int().min(1).max(100),
   minimum_funding_kobo: z.number().int().min(50000).max(100000000),
-  reward_data_mb: z.number().int().min(100).max(100000),
+  reward_data_mb: z.number().int().min(1000).max(100000).multipleOf(1000, "Reward must be a whole number of GB.",),
 });
 
 export const getMyReferralDashboard = createServerFn({ method: "GET" })
@@ -24,7 +24,7 @@ export const getReferralRewardProducts = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const { data: settings } = await db.from("referral_reward_settings").select("reward_data_mb").eq("id",true).single();
-    const targetGb = Math.max(1,Math.round((settings?.reward_data_mb??5000)/1000));
+    const targetGb = Math.max(1,Math.floor((settings?.reward_data_mb??5000)/1000));
     const { data, error } = await db.from("vtu_products")
       .select("id,network_name,plan_name,service,active,archived,data_plan_id,network_id,vtu_providers!inner(adapter,enabled,data_enabled)")
       .eq("service","data").eq("active",true).eq("archived",false);
