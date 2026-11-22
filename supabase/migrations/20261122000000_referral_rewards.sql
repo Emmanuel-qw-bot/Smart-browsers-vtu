@@ -39,6 +39,7 @@ CREATE TABLE public.referral_reward_settings (
 INSERT INTO public.referral_reward_settings(id) VALUES(true) ON CONFLICT(id) DO NOTHING;
 ALTER TABLE public.referral_reward_settings ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, UPDATE ON public.referral_reward_settings TO authenticated;
+GRANT ALL ON public.referral_reward_settings TO service_role;
 CREATE POLICY referral_settings_read ON public.referral_reward_settings FOR SELECT TO authenticated USING(true);
 CREATE POLICY referral_settings_admin_update ON public.referral_reward_settings FOR UPDATE TO authenticated USING(public.has_role(auth.uid(),'admin')) WITH CHECK(public.has_role(auth.uid(),'admin'));
 
@@ -54,6 +55,7 @@ CREATE TABLE public.referral_qualifications (
 );
 ALTER TABLE public.referral_qualifications ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.referral_qualifications TO authenticated;
+GRANT ALL ON public.referral_qualifications TO service_role;
 CREATE POLICY referral_qualification_read ON public.referral_qualifications FOR SELECT TO authenticated USING(referrer_user_id=auth.uid() OR public.has_role(auth.uid(),'admin'));
 
 CREATE TABLE public.referral_reward_claims (
@@ -74,6 +76,7 @@ CREATE TABLE public.referral_reward_claims (
 );
 ALTER TABLE public.referral_reward_claims ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.referral_reward_claims TO authenticated;
+GRANT ALL ON public.referral_reward_claims TO service_role;
 CREATE POLICY referral_claim_read ON public.referral_reward_claims FOR SELECT TO authenticated USING(referrer_user_id=auth.uid() OR public.has_role(auth.uid(),'admin'));
 
 CREATE TABLE public.referral_reward_claim_qualifications (
@@ -83,6 +86,7 @@ CREATE TABLE public.referral_reward_claim_qualifications (
 );
 ALTER TABLE public.referral_reward_claim_qualifications ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.referral_reward_claim_qualifications TO authenticated;
+GRANT ALL ON public.referral_reward_claim_qualifications TO service_role;
 CREATE POLICY referral_claim_qualifications_read ON public.referral_reward_claim_qualifications FOR SELECT TO authenticated USING(EXISTS(SELECT 1 FROM public.referral_reward_claims c WHERE c.id=claim_id AND (c.referrer_user_id=auth.uid() OR public.has_role(auth.uid(),'admin'))));
 
 CREATE TABLE public.referral_audit (
@@ -95,6 +99,7 @@ CREATE TABLE public.referral_audit (
 );
 ALTER TABLE public.referral_audit ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.referral_audit TO authenticated;
+GRANT ALL ON public.referral_audit TO service_role;
 CREATE POLICY referral_audit_admin_read ON public.referral_audit FOR SELECT TO authenticated USING(public.has_role(auth.uid(),'admin'));
 
 CREATE OR REPLACE FUNCTION public.admin_verify_referral_deposit(_transaction_id uuid,_note text DEFAULT '')
