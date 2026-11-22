@@ -6,7 +6,7 @@ const settingsSchema = z.object({
   enabled: z.boolean(),
   required_referrals: z.number().int().min(1).max(100),
   minimum_funding_kobo: z.number().int().min(50000).max(100000000),
-  reward_data_mb: z.number().int().min(1000).max(100000) .multipleOf(1000, "Reward must be a whole number of GB."),
+  reward_data_mb: z.number().int().min(1000).max(100000).multipleOf(1000),
 });
 
 export const getMyReferralDashboard = createServerFn({ method: "GET" })
