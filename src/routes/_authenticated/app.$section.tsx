@@ -11,7 +11,6 @@ import { CustomerAnnouncements, customerAnnouncementsQuery } from "@/components/
 import { CustomerBadges } from "@/components/customer/CustomerBadges";
 import { DashboardWelcome } from "@/components/customer/DashboardWelcome";
 import { CustomerAirtimeCash } from "@/components/customer/CustomerAirtimeCash";
-import { CustomerReferrals } from "@/components/customer/CustomerReferrals";
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: async ({ params, context }) => {
     const item = findNav(customerNav, params.section);
@@ -47,9 +46,7 @@ function SectionPage() {
         return <PageScaffold item={item} live><WalletPanel /></PageScaffold>;
         }
 
-        if (slug === "referrals") return <PageScaffold item={item} live><CustomerReferrals /></PageScaffold>;
-
-      if (slug === "rewards") {
+        if (slug === "rewards") {
         return <PageScaffold item={item} live><CustomerBadges /></PageScaffold>;
       }
 
