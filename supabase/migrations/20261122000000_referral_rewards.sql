@@ -49,6 +49,16 @@ ALTER TABLE public.referral_reward_claims ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.referral_reward_claims TO authenticated;
 CREATE POLICY "Users read own referral claims" ON public.referral_reward_claims FOR SELECT TO authenticated USING (referrer_user_id=auth.uid() OR public.has_role(auth.uid(),'admin'));
 
+CREATE TABLE IF NOT EXISTS public.referral_reward_claim_qualifications (
+  claim_id uuid NOT NULL REFERENCES public.referral_reward_claims(id) ON DELETE CASCADE,
+  qualification_id uuid NOT NULL UNIQUE REFERENCES public.referral_qualifications(id),
+  PRIMARY KEY (claim_id,qualification_id)
+);
+ALTER TABLE public.referral_reward_claim_qualifications ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.referral_reward_claim_qualifications TO authenticated;
+CREATE POLICY "Users read their reward qualification snapshots" ON public.referral_reward_claim_qualifications FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM referral_reward_claims c WHERE c.id=claim_id AND (c.referrer_user_id=auth.uid() OR public.has_role(auth.uid(),'admin'))));
+
 CREATE TABLE IF NOT EXISTS public.referral_audit (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -100,7 +110,7 @@ DECLARE uid uuid:=auth.uid(); s public.referral_reward_settings; q integer; clai
 BEGIN
   IF uid IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
   SELECT * INTO s FROM public.referral_reward_settings WHERE id=true;
-  SELECT count(*) INTO q FROM public.referral_qualifications WHERE referrer_user_id=uid;
+  SELECT count(*) INTO q FROM public.referral_qualifications rq WHERE referrer_user_id=uid AND NOT EXISTS (SELECT 1 FROM referral_reward_claim_qualifications used WHERE used.qualification_id=rq.id);
   SELECT coalesce(jsonb_agg(jsonb_build_object('display_name','Friend '||row_number::text,'qualified',qualified,'joined_at',joined_at,'qualified_at',qualified_at) ORDER BY joined_at),'[]'::jsonb)
     INTO friends FROM (
       SELECT p.created_at joined_at,(rq.id IS NOT NULL) qualified,rq.verified_at qualified_at,
@@ -131,6 +141,10 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'The selected reward data plan is not configured'; END IF;
   INSERT INTO referral_reward_claims(referrer_user_id,reward_cycle,data_mb,network,recipient_phone,product_id,status)
   VALUES(uid,cycle,s.reward_data_mb,_network,_phone,_product_id,'reserved') RETURNING id INTO claim_id;
+  INSERT INTO referral_reward_claim_qualifications(claim_id,qualification_id)
+    SELECT claim_id,id FROM referral_qualifications WHERE referrer_user_id=uid
+      AND NOT EXISTS (SELECT 1 FROM referral_reward_claim_qualifications used WHERE used.qualification_id=referral_qualifications.id)
+    ORDER BY verified_at LIMIT s.required_referrals;
   INSERT INTO referral_audit(actor_id,event,subject_user_id,details) VALUES(uid,'reward_claim_reserved',uid,jsonb_build_object('claim_id',claim_id,'network',_network,'phone_masked',right(_phone,4),'product_id',_product_id));
   RETURN claim_id;
 END $$;
