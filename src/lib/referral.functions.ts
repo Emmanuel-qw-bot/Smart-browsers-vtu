@@ -29,7 +29,7 @@ export const getReferralRewardProducts = createServerFn({ method: "GET" })
       .select("id,network_name,plan_name,service,active,archived,data_plan_id,network_id,vtu_providers!inner(adapter,enabled,data_enabled)")
       .eq("service","data").eq("active",true).eq("archived",false);
     if (error) throw new Error("Could not load reward plans.");
-    return (data ?? []).filter((p:any) => /(^|\D)5\s*GB(\D|$)/i.test(p.plan_name) &&
+    return (data ?? []).filter((p:any) => new RegExp("(^|\\D)"+targetGb+"\\s*GB(\\D|$)","i").test(p.plan_name) &&
       p.data_plan_id && (p.vtu_providers as any)?.adapter === "arewabundle" &&
       (p.vtu_providers as any)?.enabled && (p.vtu_providers as any)?.data_enabled);
   });
