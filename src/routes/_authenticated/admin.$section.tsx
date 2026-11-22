@@ -9,6 +9,7 @@ import { WeekendGiveawaySettings, weekendGiveawayQuery } from "@/components/admi
 import { AnnouncementSettings } from "@/components/admin/AnnouncementSettings";
 import { PendingBigisubTransactions } from "@/components/admin/PendingBigisubTransactions";
 import { AdminAirtimeCash } from "@/components/admin/AdminAirtimeCash";
+import { AdminReferralSettings } from "@/components/admin/AdminReferralSettings";
 
 export const Route = createFileRoute("/_authenticated/admin/$section")({
   loader: async ({ params, context }) => {
@@ -44,6 +45,7 @@ function AdminSection() {
   if (slug === "customers") return <PageScaffold item={item} live><CustomersTable /></PageScaffold>;
   if (slug === "wallet-management" || slug === "transactions") return <PageScaffold item={item} live><div className="space-y-5"><WalletsTable /><PendingBigisubTransactions /></div></PageScaffold>;
   if (slug === "welcome-bonus") return <PageScaffold item={item} live><WelcomeBonusSettings /></PageScaffold>;
+  if (slug === "referral-settings") return <PageScaffold item={item} live><AdminReferralSettings /></PageScaffold>;
   if (slug === "support-settings") return <PageScaffold item={item} live><SupportSettings /></PageScaffold>;
   if (slug === "weekend-giveaways") return <PageScaffold item={item} live><WeekendGiveawaySettings /></PageScaffold>;
   if (slug === "announcements") return <PageScaffold item={item} live><AnnouncementSettings /></PageScaffold>;

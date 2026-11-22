@@ -26,6 +26,8 @@ function SignupPage() {
   const [serverError, setServerError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sentTo, setSentTo] = useState("");
+  const [referrerLabel, setReferrerLabel] = useState("");
+  const [referralConfirmed, setReferralConfirmed] = useState(false);
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -37,6 +39,7 @@ function SignupPage() {
     setErrors({});
     const d = parsed.data;
     const code = d.inviteCode ?? "";
+    if (d.source === "friends" && !code) { setErrors({ inviteCode: "Enter your friend's invitation code." }); return; }
     setLoading(true);
     try {
       const phone = normalizeNigerianPhone(d.phone)!;
@@ -53,7 +56,15 @@ function SignupPage() {
       if (code) {
         const { data: ok, error } = await supabase.rpc("invite_code_is_valid", { _code: code });
         if (error) throw error;
-        if (!ok) { setErrors({ inviteCode: "We couldn't find that invitation code" }); return; }
+        if (!ok) { setErrors({ inviteCode: "We couldn't find that invitation code" }); setReferrerLabel(""); setReferralConfirmed(false); return; }
+        if (!referralConfirmed) {
+          const { data: label, error: labelError } = await (supabase as any).rpc("invite_code_referrer_label", { _code: code });
+          if (labelError) throw labelError;
+          if (!label) { setErrors({ inviteCode: "We couldn't verify the inviter's name for this code." }); return; }
+          setReferrerLabel(String(label));
+          setReferralConfirmed(false);
+          return;
+        }
       }
       const { error } = await supabase.auth.signUp({
         email: d.email,
@@ -122,9 +133,18 @@ function SignupPage() {
 
         <Field
           label={form.source === "friends" ? "Your friend's invitation code" : "Referral / invitation code (optional)"}
-          placeholder="SB-8KX92P" autoCapitalize="characters" value={form.inviteCode} onChange={set("inviteCode")} error={errors.inviteCode}
+          placeholder="SB-8KX92P" autoCapitalize="characters" value={form.inviteCode} onChange={(e) => { setForm(f => ({...f,inviteCode:e.target.value})); setReferrerLabel(""); setReferralConfirmed(false); }} error={errors.inviteCode}
         />
 
+        {referrerLabel && (
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">
+            <p>Invitation code belongs to <strong>{referrerLabel}</strong>.</p>
+            {!referralConfirmed ? (
+              <button type="button" className="mt-2 rounded-lg bg-primary px-3 py-2 text-primary-foreground" onClick={() => setReferralConfirmed(true)}>Confirm inviter</button>
+            ) : <p className="mt-1 font-medium text-primary">Inviter confirmed ✓</p>}
+            <p className="mt-1 text-xs text-muted-foreground">If this is not your friend, edit the invitation code before creating your account.</p>
+          </div>
+        )}
         {serverError && <FormMessage>{serverError}</FormMessage>}
         <SubmitButton loading={loading}>Create Account</SubmitButton>
         <p className="text-center text-[11px] text-muted-foreground">Welcome bonus terms will be announced when wallets go live.</p>
