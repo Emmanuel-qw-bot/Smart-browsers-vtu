@@ -12,7 +12,8 @@ const settingsSchema = z.object({
 export const getMyReferralDashboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase.rpc("get_my_referral_dashboard" as never);
+    const userDb = context.supabase as any;
+    const { data, error } = await userDb.rpc("get_my_referral_dashboard");
     if (error) throw new Error("Could not load referral progress.");
     return data as any;
   });
@@ -22,6 +23,8 @@ export const getReferralRewardProducts = createServerFn({ method: "GET" })
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
+    const { data: settings } = await db.from("referral_reward_settings").select("reward_data_mb").eq("id",true).single();
+    const targetGb = Math.max(1,Math.round((settings?.reward_data_mb??5000)/1000));
     const { data, error } = await db.from("vtu_products")
       .select("id,network_name,plan_name,service,active,archived,data_plan_id,network_id,vtu_providers!inner(adapter,enabled,data_enabled)")
       .eq("service","data").eq("active",true).eq("archived",false);
@@ -36,22 +39,28 @@ export const claimReferralDataReward = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({
     network: z.enum(["MTN","Airtel","Glo","9mobile"]),
     phone: z.string().regex(/^0[789][01]\d{8}$/),
-    productId: z.string().uuid(),
+    productId: z.string().uuid().optional(),
+    retryClaimId: z.string().uuid().optional(),
   }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const userDb = context.supabase as any;
-    const { data: claimId, error: reserveError } = await userDb.rpc("reserve_referral_reward_claim", {
-      _network: data.network, _phone: data.phone, _product_id: data.productId,
-    });
+    const { data: claimId, error: reserveError } = data.retryClaimId
+      ? await userDb.rpc("retry_referral_reward_claim", { _claim_id: data.retryClaimId })
+      : await userDb.rpc("reserve_referral_reward_claim", { _network: data.network, _phone: data.phone, _product_id: data.productId });
     if (reserveError || !claimId) throw new Error(reserveError?.message ?? "Could not reserve reward claim.");
 
     const claim = String(claimId);
+    const { data: claimRow, error: claimRowError } = await db.from("referral_reward_claims").select("network,recipient_phone,product_id,referrer_user_id").eq("id",claim).single();
+    if(claimRowError || !claimRow || claimRow.referrer_user_id!==context.userId) throw new Error("Could not verify reward claim.");
+    const network=claimRow.network as string;
+    const phone=claimRow.recipient_phone as string;
+    const productId=claimRow.product_id as string;
     await db.from("referral_reward_claims").update({ status: "processing" }).eq("id", claim);
     const { data: product, error: productError } = await supabaseAdmin.from("vtu_products")
       .select("id,network_id,network_name,plan_name,data_plan_id,vtu_providers!inner(adapter,enabled,data_enabled)")
-      .eq("id",data.productId).single();
+      .eq("id",productId).single();
     const provider = product?.vtu_providers as any;
     if (productError || !product || !provider || provider.adapter !== "arewabundle" || !provider.enabled || !provider.data_enabled || !product.data_plan_id) {
       await db.from("referral_reward_claims").update({ status:"failed", failure_reason:"Reward plan/provider is unavailable" }).eq("id",claim);
@@ -77,13 +86,13 @@ export const claimReferralDataReward = createServerFn({ method: "POST" })
       const response=await fetch("https://api.arewabundle.com.ng/api/data",{
         method:"POST",redirect:"error",signal:AbortSignal.timeout(25000),
         headers:{Authorization:"Token "+authBody.AccessToken,"Content-Type":"application/json",Accept:"application/json"},
-        body:JSON.stringify({network:product.network_id,phone:data.phone,data_plan:product.data_plan_id,bypass:false,"request-id":reference}),
+        body:JSON.stringify({network:product.network_id,phone,data_plan:product.data_plan_id,bypass:false,"request-id":reference}),
       });
       const body=await response.json().catch(()=>null) as any;
       if(response.ok && body?.status==="success"){
         await db.from("referral_reward_claims").update({status:"delivered",provider_reference:reference,delivered_at:new Date().toISOString(),failure_reason:null}).eq("id",claim);
-        await db.from("referral_audit").insert({actor_id:context.userId,event:"reward_data_delivered",subject_user_id:context.userId,details:{claim_id:claim,network:data.network,phone_last4:data.phone.slice(-4),provider_reference:reference}});
-        return {success:true,status:"delivered",claimId:claim,message:"Your 5GB reward delivery request succeeded. Confirm receipt on the recipient phone."};
+        await db.from("referral_audit").insert({actor_id:context.userId,event:"reward_data_delivered",subject_user_id:context.userId,details:{claim_id:claim,network,phone_last4:phone.slice(-4),provider_reference:reference}});
+        return {success:true,status:"delivered",claimId:claim,message:"Your data reward delivery request succeeded. Confirm receipt on the recipient phone."};
       }
       if(body?.status==="fail"){
         await db.from("referral_reward_claims").update({status:"failed",failure_reason:String(body.message??"Provider reported failure").slice(0,500),provider_reference:reference}).eq("id",claim);
@@ -108,7 +117,7 @@ export const getAdminReferralData = createServerFn({ method: "GET" })
     const [settings, deposits, qualifications, claims, referrals, profiles] = await Promise.all([
       db.from("referral_reward_settings").select("*").eq("id",true).single(),
       db.from("wallet_transactions").select("id,user_id,amount_kobo,reference,description,created_at").eq("category","deposit").gte("amount_kobo",50000).order("created_at",{ascending:false}).limit(100),
-      db.from("referral_qualifications").select("id,referred_user_id,referrer_user_id,qualifying_amount_kobo,verified_at").order("verified_at",{ascending:false}).limit(100),
+      db.from("referral_qualifications").select("id,referred_user_id,referrer_user_id,qualifying_wallet_transaction_id,qualifying_amount_kobo,verified_at").order("verified_at",{ascending:false}).limit(100),
       db.from("referral_reward_claims").select("*").order("created_at",{ascending:false}).limit(100),
       db.from("profiles").select("id,full_name,email,invite_code,referred_by,created_at").not("referred_by","is",null).order("created_at",{ascending:false}).limit(200),
       db.from("profiles").select("id,full_name,email,phone").limit(2000),
