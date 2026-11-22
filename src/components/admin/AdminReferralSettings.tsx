@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Loader2, ShieldCheck, Save } from "lucide-react";
-import { getAdminReferralData, saveReferralSettings, verifyReferralDeposit } from "@/lib/referral.functions";
+import { getAdminReferralData, saveReferralSettings, verifyReferralDeposit, resolveReferralRewardClaim } from "@/lib/referral.functions";
 
 const cash=(k:number)=>"₦"+(k/100).toLocaleString("en-NG");
 export function AdminReferralSettings(){
@@ -11,6 +11,7 @@ export function AdminReferralSettings(){
  const query=useQuery({queryKey:["admin-referral-data"],queryFn:()=>getAdminReferralData()});
  const save=useServerFn(saveReferralSettings);
  const verify=useServerFn(verifyReferralDeposit);
+ const resolve=useServerFn(resolveReferralRewardClaim);
  const [draft,setDraft]=useState<any>(null);
  const [busy,setBusy]=useState("");
  const d:any=query.data;
@@ -29,6 +30,14 @@ export function AdminReferralSettings(){
    setBusy(id);
    try{await verify({data:{transactionId:id,note}});toast.success("Deposit marked as qualifying referral funding");await qc.invalidateQueries({queryKey:["admin-referral-data"]});await qc.invalidateQueries({queryKey:["my-referral-dashboard"]});}
    catch(e){toast.error(e instanceof Error?e.message:"Verification failed");}finally{setBusy("");}
+ }
+ async function resolveClaim(id:string,status:"delivered"|"failed"){
+   const note=prompt(status==="delivered"?"Verify delivery in provider logs or with recipient, then add a note (optional):":"Confirm provider failure before resolving. Add a note (optional):");
+   if(note===null)return;
+   if(status==="delivered"&&!confirm("Have you verified that this data reward was actually delivered?"))return;
+   setBusy(id);
+   try{await resolve({data:{claimId:id,status,note}});toast.success("Claim reconciled");await qc.invalidateQueries({queryKey:["admin-referral-data"]});await qc.invalidateQueries({queryKey:["my-referral-dashboard"]});}
+   catch(e){toast.error(e instanceof Error?e.message:"Could not resolve claim");}finally{setBusy("");}
  }
  if(query.isLoading)return <div className="h-40 animate-pulse rounded-2xl bg-muted"/>;
  if(query.error)return <p className="text-sm text-destructive">Could not load referral admin data.</p>;
@@ -63,7 +72,7 @@ export function AdminReferralSettings(){
   </section>
 
   <section className="rounded-2xl border bg-card p-4"><h2 className="font-display text-lg font-semibold">Reward claims</h2>
-   {(d.claims??[]).length===0?<p className="mt-2 text-sm text-muted-foreground">No rewards claimed yet.</p>:<div className="mt-3 space-y-2">{d.claims.map((c:any)=><div key={c.id} className="rounded-xl bg-muted p-3 text-sm"><div className="flex justify-between gap-2"><strong>{c.data_mb/1000}GB · {c.network}</strong><span className="capitalize">{c.status}</span></div><p className="text-xs text-muted-foreground">Recipient ••••{c.recipient_phone.slice(-4)} · {c.referrer_user_id}</p><p className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString()}</p>{c.failure_reason&&<p className="mt-1 text-xs text-destructive">{c.failure_reason}</p>}</div>)}</div>}
+   {(d.claims??[]).length===0?<p className="mt-2 text-sm text-muted-foreground">No rewards claimed yet.</p>:<div className="mt-3 space-y-2">{d.claims.map((c:any)=><div key={c.id} className="rounded-xl bg-muted p-3 text-sm"><div className="flex justify-between gap-2"><strong>{c.data_mb/1000}GB · {c.network}</strong><span className="capitalize">{c.status}</span></div><p className="text-xs text-muted-foreground">Recipient ••••{c.recipient_phone.slice(-4)} · {c.referrer_user_id}</p><p className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString()}</p>{c.failure_reason&&<p className="mt-1 text-xs text-destructive">{c.failure_reason}</p>}{c.status==="pending"&&<div className="mt-2 flex flex-wrap gap-2"><button disabled={busy===c.id} onClick={()=>resolveClaim(c.id,"delivered")} className="rounded-lg border px-3 py-2 text-xs">Confirm delivered</button><button disabled={busy===c.id} onClick={()=>resolveClaim(c.id,"failed")} className="rounded-lg border px-3 py-2 text-xs">Confirm failed</button></div>}</div>)}</div>}
   </section>
  </div>;
 }
