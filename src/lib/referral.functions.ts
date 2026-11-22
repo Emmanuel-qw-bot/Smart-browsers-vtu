@@ -37,8 +37,8 @@ export const getReferralRewardProducts = createServerFn({ method: "GET" })
 export const claimReferralDataReward = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({
-    network: z.enum(["MTN","Airtel","Glo","9mobile"]),
-    phone: z.string().regex(/^0[789][01]\d{8}$/),
+    network: z.enum(["MTN","Airtel","Glo","9mobile"]).optional(),
+    phone: z.string().regex(/^0[789][01]\d{8}$/).optional(),
     productId: z.string().uuid().optional(),
     retryClaimId: z.string().uuid().optional(),
   }).parse(input))
@@ -51,6 +51,7 @@ export const claimReferralDataReward = createServerFn({ method: "POST" })
       : await userDb.rpc("reserve_referral_reward_claim", { _network: data.network, _phone: data.phone, _product_id: data.productId });
     if (reserveError || !claimId) throw new Error(reserveError?.message ?? "Could not reserve reward claim.");
 
+    if(!data.retryClaimId && (!data.network || !data.phone || !data.productId)) throw new Error("Choose network, phone number and reward bundle.");
     const claim = String(claimId);
     const { data: claimRow, error: claimRowError } = await db.from("referral_reward_claims").select("network,recipient_phone,product_id,referrer_user_id").eq("id",claim).single();
     if(claimRowError || !claimRow || claimRow.referrer_user_id!==context.userId) throw new Error("Could not verify reward claim.");
