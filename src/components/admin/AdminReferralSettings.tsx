@@ -46,8 +46,8 @@ export function AdminReferralSettings(){
 
   <section className="rounded-2xl border bg-card p-4 space-y-3">
    <div><h2 className="font-display text-lg font-semibold">Verify referral wallet funding</h2><p className="text-xs text-muted-foreground">Manual wallet credits do NOT qualify automatically. Verify the actual payment first, then mark the deposit eligible. Only deposit-category transactions ≥ configured minimum are accepted.</p></div>
-   {(d.deposits??[]).filter((t:any)=>!qualifiedIds.has(t.id)).length===0?<p className="text-sm text-muted-foreground">No unverified qualifying deposit transactions.</p>:
-    <div className="space-y-2">{d.deposits.filter((t:any)=>!qualifiedIds.has(t.id)).map((t:any)=>{
+   {(d.deposits??[]).filter((t:any)=>!qualifiedIds.has(t.id)&&t.amount_kobo>=s.minimum_funding_kobo).length===0?<p className="text-sm text-muted-foreground">No unverified qualifying deposit transactions.</p>:
+    <div className="space-y-2">{d.deposits.filter((t:any)=>!qualifiedIds.has(t.id)&&t.amount_kobo>=s.minimum_funding_kobo).map((t:any)=>{
       const p:any=profiles.get(t.user_id);
       return <article key={t.id} className="rounded-xl bg-muted p-3 text-sm">
        <div className="flex flex-wrap items-start justify-between gap-2"><div><strong>{p?.full_name??"Customer"}</strong><p className="text-xs text-muted-foreground">{p?.phone??t.user_id} · {p?.email??""}</p></div><strong>{cash(t.amount_kobo)}</strong></div>
