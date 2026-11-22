@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS public.referral_reward_settings (
   id boolean PRIMARY KEY DEFAULT true CHECK (id),
   enabled boolean NOT NULL DEFAULT true,
   required_referrals integer NOT NULL DEFAULT 5 CHECK (required_referrals BETWEEN 1 AND 100),
-  minimum_funding_kobo bigint NOT NULL DEFAULT 50000 CHECK (minimum_funding_kobo >= 500 AND minimum_funding_kobo <= 100000000),
+  minimum_funding_kobo bigint NOT NULL DEFAULT 50000 CHECK (minimum_funding_kobo >= 50000 AND minimum_funding_kobo <= 100000000),
   reward_data_mb integer NOT NULL DEFAULT 5000 CHECK (reward_data_mb BETWEEN 100 AND 100000),
   updated_at timestamptz NOT NULL DEFAULT now(),
   updated_by uuid REFERENCES auth.users(id) ON DELETE SET NULL
@@ -128,6 +128,21 @@ BEGIN
 END $$;
 REVOKE EXECUTE ON FUNCTION public.get_my_referral_dashboard() FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.get_my_referral_dashboard() TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.retry_referral_reward_claim(_claim_id uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $
+DECLARE uid uuid:=auth.uid(); c public.referral_reward_claims;
+BEGIN
+  IF uid IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
+  SELECT * INTO c FROM referral_reward_claims WHERE id=_claim_id AND referrer_user_id=uid FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Reward claim not found'; END IF;
+  IF c.status<>'failed' THEN RAISE EXCEPTION 'Only confirmed failed deliveries can be retried. Pending requests must be reconciled first.'; END IF;
+  UPDATE referral_reward_claims SET status='reserved',failure_reason=NULL,provider_reference=NULL,updated_at=now() WHERE id=_claim_id;
+  INSERT INTO referral_audit(actor_id,event,subject_user_id,details) VALUES(uid,'reward_claim_retry',uid,jsonb_build_object('claim_id',_claim_id));
+  RETURN _claim_id;
+END $;
+REVOKE EXECUTE ON FUNCTION public.retry_referral_reward_claim(uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.retry_referral_reward_claim(uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.reserve_referral_reward_claim(_network text,_phone text,_product_id uuid)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
