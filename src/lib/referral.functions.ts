@@ -105,15 +105,16 @@ export const getAdminReferralData = createServerFn({ method: "GET" })
     if(roleError || !admin) throw new Error("Administrator permission required.");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
-    const [settings, deposits, qualifications, claims, referrals] = await Promise.all([
+    const [settings, deposits, qualifications, claims, referrals, profiles] = await Promise.all([
       db.from("referral_reward_settings").select("*").eq("id",true).single(),
       db.from("wallet_transactions").select("id,user_id,amount_kobo,reference,description,created_at").eq("category","deposit").gte("amount_kobo",50000).order("created_at",{ascending:false}).limit(100),
       db.from("referral_qualifications").select("id,referred_user_id,referrer_user_id,qualifying_amount_kobo,verified_at").order("verified_at",{ascending:false}).limit(100),
       db.from("referral_reward_claims").select("*").order("created_at",{ascending:false}).limit(100),
       db.from("profiles").select("id,full_name,email,invite_code,referred_by,created_at").not("referred_by","is",null).order("created_at",{ascending:false}).limit(200),
+      db.from("profiles").select("id,full_name,email,phone").limit(2000),
     ]);
     if(settings.error) throw new Error("Could not load referral settings.");
-    return {settings:settings.data,deposits:deposits.data??[],qualifications:qualifications.data??[],claims:claims.data??[],referrals:referrals.data??[]};
+    return {settings:settings.data,deposits:deposits.data??[],qualifications:qualifications.data??[],claims:claims.data??[],referrals:referrals.data??[],profiles:profiles.data??[]};
   });
 
 export const saveReferralSettings = createServerFn({ method: "POST" })
