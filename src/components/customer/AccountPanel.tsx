@@ -27,6 +27,7 @@ export function AccountPanel() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [referralName, setReferralName] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [edit, setEdit] = useState({ fullName: "", phone: "" });
@@ -45,6 +46,8 @@ export function AccountPanel() {
       if (error || !data) { setLoadError("We couldn't load your profile."); return; }
       setProfile(data);
       setEdit({ fullName: data.full_name, phone: data.phone.replace(/^\+234/, "0") });
+      const { data: name } = await (supabase as any).rpc("invite_code_referrer_label", { _code: data.invite_code });
+      if (name) setReferralName(String(name));
     })();
   }, []);
 
@@ -103,6 +106,7 @@ export function AccountPanel() {
             <Copy className="size-4" />
           </button>
         </div>
+        {referralName && <p className="mt-2 text-sm font-semibold">Your referral name: {referralName}</p>}
         <p className="mt-2 text-xs opacity-75">This code is permanently yours. Share it with friends when they sign up.</p>
       </section>
 
