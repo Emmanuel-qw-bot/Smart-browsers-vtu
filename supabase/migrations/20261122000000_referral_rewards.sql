@@ -81,7 +81,7 @@ BEGIN
   IF NOT FOUND OR tx.category <> 'deposit' OR tx.amount_kobo < 50000 THEN
     RAISE EXCEPTION 'Only wallet deposit transactions of at least ₦500 can be verified';
   END IF;
-  SELECT referred_by INTO referrer FROM public.profiles WHERE id=tx.user_id;
+  SELECT referred_by INTO referrer FROM public.profiles WHERE id=tx.user_id AND email_verified=true;
   IF referrer IS NULL THEN RETURN jsonb_build_object('qualified',false,'reason','Customer was not referred'); END IF;
   SELECT minimum_funding_kobo INTO minimum_amount FROM public.referral_reward_settings WHERE id=true;
   IF tx.amount_kobo < minimum_amount THEN RAISE EXCEPTION 'Deposit is below the configured qualifying amount'; END IF;
