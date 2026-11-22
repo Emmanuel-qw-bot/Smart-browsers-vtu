@@ -98,8 +98,10 @@ GRANT EXECUTE ON FUNCTION public.admin_verify_referral_deposit(uuid,text) TO aut
 -- The code lookup exposes only a referral display label, never contact details.
 CREATE OR REPLACE FUNCTION public.invite_code_referrer_label(_code text)
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
-  SELECT 'SBR-' || split_part(trim(full_name),' ',1)
-  FROM public.profiles WHERE invite_code=upper(trim(_code)) LIMIT 1
+  SELECT CASE WHEN (SELECT count(*) FROM public.profiles p2 WHERE lower(split_part(trim(p2.full_name),' ',1))=lower(split_part(trim(p.full_name),' ',1)))>1
+    THEN 'SBR-'||split_part(trim(p.full_name),' ',1)||'-'||right(p.invite_code,4)
+    ELSE 'SBR-'||split_part(trim(p.full_name),' ',1) END
+  FROM public.profiles p WHERE p.invite_code=upper(trim(_code)) LIMIT 1
 $$;
 REVOKE EXECUTE ON FUNCTION public.invite_code_referrer_label(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.invite_code_referrer_label(text) TO anon,authenticated;
