@@ -39,7 +39,7 @@ export function AdminReferralSettings(){
    <div className="grid gap-3 sm:grid-cols-3">
     <label className="text-sm">Required qualified friends<input type="number" min="1" max="100" className="mt-1 w-full rounded-xl border bg-background p-3" value={s.required_referrals} onChange={e=>setDraft({...s,required_referrals:Number(e.target.value)})}/></label>
     <label className="text-sm">Minimum funding (₦)<input type="number" min="500" className="mt-1 w-full rounded-xl border bg-background p-3" value={Number(s.minimum_funding_kobo)/100} onChange={e=>setDraft({...s,minimum_funding_kobo:Math.round(Number(e.target.value)*100)})}/></label>
-    <label className="text-sm">Reward data (MB)<input type="number" min="100" className="mt-1 w-full rounded-xl border bg-background p-3" value={s.reward_data_mb} onChange={e=>setDraft({...s,reward_data_mb:Number(e.target.value)})}/></label>
+    <label className="text-sm">Reward data (MB)<input type="number" min="1000" step="1000" className="mt-1 w-full rounded-xl border bg-background p-3" value={s.reward_data_mb} onChange={e=>setDraft({...s,reward_data_mb:Number(e.target.value)})}/></label>
    </div>
    <button disabled={busy==="save"} onClick={saveSettings} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy==="save"?<Loader2 className="size-4 animate-spin"/>:<Save className="size-4"/>}Save rules</button>
   </section>
