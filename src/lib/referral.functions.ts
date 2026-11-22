@@ -153,3 +153,15 @@ export const verifyReferralDeposit = createServerFn({method:"POST"})
     if(error)throw new Error(error.message);
     return result;
   });
+
+export const resolveReferralRewardClaim = createServerFn({method:"POST"})
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input)=>z.object({claimId:z.string().uuid(),status:z.enum(["delivered","failed"]),note:z.string().max(500).optional()}).parse(input))
+  .handler(async ({data,context})=>{
+    const userDb=context.supabase as any;
+    const {data:admin,error:roleError}=await userDb.rpc("has_role",{_user_id:context.userId,_role:"admin"});
+    if(roleError||!admin)throw new Error("Administrator permission required.");
+    const {data:ok,error}=await userDb.rpc("admin_resolve_referral_reward_claim",{_claim_id:data.claimId,_status:data.status,_note:data.note??""});
+    if(error)throw new Error(error.message);
+    return {success:!!ok};
+  });
