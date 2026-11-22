@@ -6,7 +6,7 @@ const settingsSchema = z.object({
   enabled: z.boolean(),
   required_referrals: z.number().int().min(1).max(100),
   minimum_funding_kobo: z.number().int().min(50000).max(100000000),
-  reward_data_mb: z.number().int().min(100).max(100000,
+  reward_data_mb: z.number().int().min(100).max(100000),
 });
 
 export const getMyReferralDashboard = createServerFn({ method: "GET" })
@@ -26,7 +26,7 @@ export const getReferralRewardProducts = createServerFn({ method: "GET" })
       .select("id,network_name,plan_name,service,active,archived,data_plan_id,network_id,vtu_providers!inner(adapter,enabled,data_enabled)")
       .eq("service","data").eq("active",true).eq("archived",false);
     if (error) throw new Error("Could not load reward plans.");
-    return (data ?? []).filter((p:any) => /(^|\\D)5\\s*GB(\\D|$)/i.test(p.plan_name) &&
+    return (data ?? []).filter((p:any) => /(^|\D)5\\s*GB(\D|$)/i.test(p.plan_name) &&
       p.data_plan_id && (p.vtu_providers as any)?.adapter === "arewabundle" &&
       (p.vtu_providers as any)?.enabled && (p.vtu_providers as any)?.data_enabled);
   });
@@ -35,11 +35,12 @@ export const claimReferralDataReward = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({
     network: z.enum(["MTN","Airtel","Glo","9mobile"]),
-    phone: z.string().regex(/^0[789][01]\\d{8}$/),
+    phone: z.string().regex(/^0[789][01]\d{8}$/),
     productId: z.string().uuid(),
   }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
     const userDb = context.supabase as any;
     const { data: claimId, error: reserveError } = await userDb.rpc("reserve_referral_reward_claim", {
       _network: data.network, _phone: data.phone, _product_id: data.productId,
@@ -53,13 +54,13 @@ export const claimReferralDataReward = createServerFn({ method: "POST" })
       .eq("id",data.productId).single();
     const provider = product?.vtu_providers as any;
     if (productError || !product || !provider || provider.adapter !== "arewabundle" || !provider.enabled || !provider.data_enabled || !product.data_plan_id) {
-      await supabaseAdmin.from("referral_reward_claims").update({ status:"failed", failure_reason:"Reward plan/provider is unavailable" }).eq("id",claim);
+      await db.from("referral_reward_claims").update({ status:"failed", failure_reason:"Reward plan/provider is unavailable" }).eq("id",claim);
       throw new Error("Reward delivery is unavailable for this plan. Your unlocked reward remains available for support.");
     }
     const gatewayKey = process.env["LOVABLE_API_KEY"];
     const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
     if (!gatewayKey || !connectionKey) {
-      await supabaseAdmin.from("referral_reward_claims").update({ status:"failed", failure_reason:"Provider credentials unavailable" }).eq("id",claim);
+      await db.from("referral_reward_claims").update({ status:"failed", failure_reason:"Provider credentials unavailable" }).eq("id",claim);
       throw new Error("Provider connection unavailable. Your reward was not consumed.");
     }
     const reference = "REF-" + claim;
@@ -81,7 +82,7 @@ export const claimReferralDataReward = createServerFn({ method: "POST" })
       const body=await response.json().catch(()=>null) as any;
       if(response.ok && body?.status==="success"){
         await supabaseAdmin.from("referral_reward_claims").update({status:"delivered",provider_reference:reference,delivered_at:new Date().toISOString(),failure_reason:null}).eq("id",claim);
-        await supabaseAdmin.from("referral_audit").insert({actor_id:context.userId,event:"reward_data_delivered",subject_user_id:context.userId,details:{claim_id:claim,network:data.network,phone_last4:data.phone.slice(-4),provider_reference:reference}});
+        await db.from("referral_audit").insert({actor_id:context.userId,event:"reward_data_delivered",subject_user_id:context.userId,details:{claim_id:claim,network:data.network,phone_last4:data.phone.slice(-4),provider_reference:reference}});
         return {success:true,status:"delivered",claimId:claim,message:"Your 5GB reward delivery request succeeded. Confirm receipt on the recipient phone."};
       }
       if(body?.status==="fail"){
@@ -105,11 +106,11 @@ export const getAdminReferralData = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const [settings, deposits, qualifications, claims, referrals] = await Promise.all([
-      supabaseAdmin.from("referral_reward_settings").select("*").eq("id",true).single(),
+      db.from("referral_reward_settings").select("*").eq("id",true).single(),
       supabaseAdmin.from("wallet_transactions").select("id,user_id,amount_kobo,reference,description,created_at").eq("category","deposit").gte("amount_kobo",50000).order("created_at",{ascending:false}).limit(100),
-      supabaseAdmin.from("referral_qualifications").select("id,referred_user_id,referrer_user_id,qualifying_amount_kobo,verified_at").order("verified_at",{ascending:false}).limit(100),
+      db.from("referral_qualifications").select("id,referred_user_id,referrer_user_id,qualifying_amount_kobo,verified_at").order("verified_at",{ascending:false}).limit(100),
       supabaseAdmin.from("referral_reward_claims").select("*").order("created_at",{ascending:false}).limit(100),
-      supabaseAdmin.from("profiles").select("id,full_name,email,invite_code,referred_by,created_at").not("referred_by","is",null).order("created_at",{ascending:false}).limit(200),
+      db.from("profiles").select("id,full_name,email,invite_code,referred_by,created_at").not("referred_by","is",null).order("created_at",{ascending:false}).limit(200),
     ]);
     if(settings.error) throw new Error("Could not load referral settings.");
     return {settings:settings.data,deposits:deposits.data??[],qualifications:qualifications.data??[],claims:claims.data??[],referrals:referrals.data??[]};
@@ -137,7 +138,7 @@ export const verifyReferralDeposit = createServerFn({method:"POST"})
     const userDb = context.supabase as any;
     const {data:admin,error:roleError}=await userDb.rpc("has_role",{_user_id:context.userId,_role:"admin"});
     if(roleError||!admin)throw new Error("Administrator permission required.");
-    const {data:result,error}=await userDb.rpc("admin_verify_referral_deposit",{_transaction_id:data.transactionId,_note:data.note??""} as never);
+    const {data:result,error}=await userDb.rpc("admin_verify_referral_deposit",{_transaction_id:data.transactionId,_note:data.note??""});
     if(error)throw new Error(error.message);
     return result;
   });
