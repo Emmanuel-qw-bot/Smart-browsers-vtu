@@ -164,6 +164,20 @@ END $retry_fn$;
 REVOKE EXECUTE ON FUNCTION public.retry_referral_reward_claim(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.retry_referral_reward_claim(uuid) TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.admin_resolve_referral_reward_claim(_claim_id uuid,_status text,_note text DEFAULT '')
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $resolve_fn$
+DECLARE c public.referral_reward_claims;
+BEGIN
+  IF NOT public.has_role(auth.uid(),'admin') THEN RAISE EXCEPTION 'Administrator permission required'; END IF;
+  IF _status NOT IN ('delivered','failed') THEN RAISE EXCEPTION 'Choose a valid resolution'; END IF;
+  SELECT * INTO c FROM public.referral_reward_claims WHERE id=_claim_id FOR UPDATE;
+  IF NOT FOUND OR c.status<>'pending' THEN RAISE EXCEPTION 'Only pending claims can be manually reconciled'; END IF;
+  UPDATE public.referral_reward_claims SET status=_status,failure_reason=CASE WHEN _status='failed' THEN left(trim(_note),500) ELSE NULL END,delivered_at=CASE WHEN _status='delivered' THEN now() ELSE delivered_at END,updated_at=now() WHERE id=_claim_id;
+  INSERT INTO public.referral_audit(actor_id,event,subject_user_id,details) VALUES(auth.uid(),'reward_claim_manually_resolved',c.referrer_user_id,jsonb_build_object('claim_id',_claim_id,'status',_status,'note',left(trim(_note),500)));
+  RETURN true;
+END $resolve_fn$;
+REVOKE EXECUTE ON FUNCTION public.admin_resolve_referral_reward_claim(uuid,text,text) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.admin_resolve_referral_reward_claim(uuid,text,text) TO authenticated;
 CREATE OR REPLACE FUNCTION public.reserve_referral_reward_claim(_network text,_phone text,_product_id uuid)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $reserve_fn$
 DECLARE uid uuid:=auth.uid(); s public.referral_reward_settings; q integer; cycle integer; product public.vtu_products; claim_id uuid;
