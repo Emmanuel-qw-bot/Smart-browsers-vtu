@@ -1,6 +1,6 @@
 -- Smart Browsers referral rewards: configurable eligibility, verified deposits, one-time reward claims.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $referral_fn$
 DECLARE
   meta jsonb := COALESCE(NEW.raw_user_meta_data, '{}'::jsonb);
   v_name text := trim(COALESCE(meta->>'full_name', ''));
@@ -11,7 +11,22 @@ DECLARE
   v_ref uuid;
 BEGIN
   IF char_length(v_name) < 2 OR char_length(v_name) > 100 THEN RAISE EXCEPTION 'Please enter your full name'; END IF;
-  IF v_phone !~ '^\+234[789][01][0-9]{8}
+  IF v_phone !~ '^\\+234[789][01][0-9]{8}$' THEN RAISE EXCEPTION 'Please enter a valid Nigerian phone number'; END IF;
+  IF EXISTS (SELECT 1 FROM public.profiles WHERE phone=v_phone) THEN RAISE EXCEPTION 'PHONE_TAKEN'; END IF;
+  IF EXISTS (SELECT 1 FROM public.profiles WHERE lower(email)=lower(NEW.email)) THEN RAISE EXCEPTION 'EMAIL_TAKEN'; END IF;
+  IF v_source NOT IN ('friends','whatsapp','facebook','instagram','tiktok','google_search','other') THEN v_source:='other'; END IF;
+  IF v_source='friends' AND v_ref_code='' THEN RAISE EXCEPTION 'Friend referral code required'; END IF;
+  IF v_ref_code<>'' THEN
+    SELECT id INTO v_ref FROM public.profiles WHERE invite_code=v_ref_code;
+    IF v_ref IS NULL THEN RAISE EXCEPTION 'Invitation code not found'; END IF;
+    IF EXISTS (SELECT 1 FROM public.profiles WHERE id=v_ref AND (phone=v_phone OR lower(email)=lower(NEW.email))) THEN RAISE EXCEPTION 'Self referral is not allowed'; END IF;
+  END IF;
+  INSERT INTO public.profiles(id,full_name,email,phone,invite_code,referred_by,registration_source,registration_source_other,email_verified)
+  VALUES(NEW.id,v_name,lower(NEW.email),v_phone,public.generate_invite_code(),v_ref,v_source::public.registration_source,v_other,NEW.email_confirmed_at IS NOT NULL);
+  INSERT INTO public.user_roles(user_id,role) VALUES(NEW.id,'customer');
+  RETURN NEW;
+END $referral_fn$;
+
 CREATE TABLE IF NOT EXISTS public.referral_reward_settings (
   id boolean PRIMARY KEY DEFAULT true CHECK (id),
   enabled boolean NOT NULL DEFAULT true,
