@@ -21,7 +21,8 @@ export const getReferralRewardProducts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin.from("vtu_products")
+    const db = supabaseAdmin as any;
+    const { data, error } = await db.from("vtu_products")
       .select("id,network_name,plan_name,service,active,archived,data_plan_id,network_id,vtu_providers!inner(adapter,enabled,data_enabled)")
       .eq("service","data").eq("active",true).eq("archived",false);
     if (error) throw new Error("Could not load reward plans.");
@@ -39,13 +40,14 @@ export const claimReferralDataReward = createServerFn({ method: "POST" })
   }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: claimId, error: reserveError } = await context.supabase.rpc("reserve_referral_reward_claim" as never, {
+    const userDb = context.supabase as any;
+    const { data: claimId, error: reserveError } = await userDb.rpc("reserve_referral_reward_claim", {
       _network: data.network, _phone: data.phone, _product_id: data.productId,
-    } as never);
+    });
     if (reserveError || !claimId) throw new Error(reserveError?.message ?? "Could not reserve reward claim.");
 
     const claim = String(claimId);
-    await supabaseAdmin.from("referral_reward_claims").update({ status: "processing" }).eq("id", claim);
+    await db.from("referral_reward_claims").update({ status: "processing" }).eq("id", claim);
     const { data: product, error: productError } = await supabaseAdmin.from("vtu_products")
       .select("id,network_id,network_name,plan_name,data_plan_id,vtu_providers!inner(adapter,enabled,data_enabled)")
       .eq("id",data.productId).single();
@@ -101,10 +103,11 @@ export const getAdminReferralData = createServerFn({ method: "GET" })
     const { data: admin, error: roleError } = await context.supabase.rpc("has_role", {_user_id:context.userId,_role:"admin"});
     if(roleError || !admin) throw new Error("Administrator permission required.");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
     const [settings, deposits, qualifications, claims, referrals] = await Promise.all([
       supabaseAdmin.from("referral_reward_settings").select("*").eq("id",true).single(),
       supabaseAdmin.from("wallet_transactions").select("id,user_id,amount_kobo,reference,description,created_at").eq("category","deposit").gte("amount_kobo",50000).order("created_at",{ascending:false}).limit(100),
-      supabaseAdmin.from("referral_qualifications").select("id,referred_user_id,referrer_user_id,qualifying_amount_kobo,verified_at,profiles:referred_user_id(full_name,email),referrer:referrer_user_id(full_name,email)").order("verified_at",{ascending:false}).limit(100),
+      supabaseAdmin.from("referral_qualifications").select("id,referred_user_id,referrer_user_id,qualifying_amount_kobo,verified_at").order("verified_at",{ascending:false}).limit(100),
       supabaseAdmin.from("referral_reward_claims").select("*").order("created_at",{ascending:false}).limit(100),
       supabaseAdmin.from("profiles").select("id,full_name,email,invite_code,referred_by,created_at").not("referred_by","is",null).order("created_at",{ascending:false}).limit(200),
     ]);
@@ -116,10 +119,12 @@ export const saveReferralSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input)=>settingsSchema.parse(input))
   .handler(async ({data,context})=>{
-    const {data:admin,error:roleError}=await context.supabase.rpc("has_role",{_user_id:context.userId,_role:"admin"});
+    const userDb = context.supabase as any;
+    const {data:admin,error:roleError}=await userDb.rpc("has_role",{_user_id:context.userId,_role:"admin"});
     if(roleError||!admin)throw new Error("Administrator permission required.");
     const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
-    const {error}=await supabaseAdmin.from("referral_reward_settings").update({...data,updated_by:context.userId,updated_at:new Date().toISOString()}).eq("id",true);
+    const db = supabaseAdmin as any;
+    const {error}=await db.from("referral_reward_settings").update({...data,updated_by:context.userId,updated_at:new Date().toISOString()}).eq("id",true);
     if(error)throw new Error("Could not save referral settings.");
     await supabaseAdmin.from("referral_audit").insert({actor_id:context.userId,event:"referral_settings_updated",details:data});
     return {success:true};
@@ -129,9 +134,10 @@ export const verifyReferralDeposit = createServerFn({method:"POST"})
   .middleware([requireSupabaseAuth])
   .inputValidator((input)=>z.object({transactionId:z.string().uuid(),note:z.string().max(500).optional()}).parse(input))
   .handler(async ({data,context})=>{
-    const {data:admin,error:roleError}=await context.supabase.rpc("has_role",{_user_id:context.userId,_role:"admin"});
+    const userDb = context.supabase as any;
+    const {data:admin,error:roleError}=await userDb.rpc("has_role",{_user_id:context.userId,_role:"admin"});
     if(roleError||!admin)throw new Error("Administrator permission required.");
-    const {data:result,error}=await context.supabase.rpc("admin_verify_referral_deposit" as never,{_transaction_id:data.transactionId,_note:data.note??""} as never);
+    const {data:result,error}=await userDb.rpc("admin_verify_referral_deposit",{_transaction_id:data.transactionId,_note:data.note??""} as never);
     if(error)throw new Error(error.message);
     return result;
   });
