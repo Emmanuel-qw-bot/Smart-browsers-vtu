@@ -51,8 +51,8 @@ export function CustomerReferrals() {
       <p className="mt-2 text-xs opacity-80">{d.available_count??count} qualifying friend(s) available for your next reward claim.</p>
     </section>
 
-    <section className="rounded-2xl border bg-card p-4 shadow-soft">
-      <h3 className="font-display font-semibold">Your referrals</h3>
+    <section className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-4 shadow-sm dark:from-violet-950/20 dark:to-card">
+      <h3 className="flex items-center gap-2 font-display font-semibold"><span className="rounded-lg bg-violet-100 p-1.5 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"><Gift className="size-4"/></span>Your referrals</h3>
       {(d.friends??[]).length===0?<p className="mt-3 text-sm text-muted-foreground">No referrals yet. Share your invitation code from My Account to get started.</p>:
         <div className="mt-3 space-y-2">{d.friends.map((f:any,i:number)=><div key={i} className="flex items-center justify-between rounded-xl border border-violet-100 bg-white/80 p-3 shadow-sm dark:border-violet-900/40 dark:bg-card">
           <div><p className="text-sm font-medium">{f.display_name}</p><p className="text-xs text-muted-foreground">Joined {new Date(f.joined_at).toLocaleDateString()}</p></div>
@@ -60,14 +60,14 @@ export function CustomerReferrals() {
         </div>)}</div>}
     </section>
 
-    <section className="rounded-2xl border bg-card p-4 shadow-soft">
-      <h3 className="font-display font-semibold">Your reward</h3>
+    <section className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-white p-4 shadow-sm dark:from-amber-950/20 dark:via-orange-950/10 dark:to-card">
+      <h3 className="flex items-center gap-2 font-display font-semibold"><span className="rounded-lg bg-amber-100 p-1.5 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"><Gift className="size-4"/></span>Your reward</h3>
       {!d.unlocked?<div className="mt-3 rounded-xl border border-amber-200 bg-white/70 p-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-card dark:text-amber-200"><LockKeyhole className="size-4"/>Complete {Math.max(0,required-(d.available_count??count))} more qualifying referral(s) to unlock your reward.</div>:
         <div className="mt-3 space-y-3 rounded-xl border border-amber-200/80 bg-white/70 p-3 dark:border-amber-900/40 dark:bg-card/80">
           <p className="text-sm font-semibold text-primary">🎉 Your {d.reward_data_mb/1000}GB reward is unlocked! Choose the network and phone number to receive it.</p>
           <label className="block text-sm">Network<select className="mt-1 w-full rounded-xl border border-violet-200 bg-white p-3 focus:border-violet-500 focus:outline-none dark:border-violet-900/50 dark:bg-background" value={network} onChange={e=>{setNetwork(e.target.value as any);setProductId("");}}>{networks.map(n=><option key={n}>{n}</option>)}</select></label>
-          <label className="block text-sm">Recipient phone number<input inputMode="numeric" className="mt-1 w-full rounded-xl border bg-background p-3" placeholder="08012345678" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,"").slice(0,11))}/></label>
-          <label className="block text-sm">Available reward bundle<select className="mt-1 w-full rounded-xl border bg-background p-3" value={selected?.id??""} onChange={e=>setProductId(e.target.value)}>{options.length?options.map(p=><option key={p.id} value={p.id}>{p.plan_name}</option>):<option value="">No configured 5GB plan</option>}</select></label>
+          <label className="block text-sm">Recipient phone number<input inputMode="numeric" className="mt-1 w-full rounded-xl border border-violet-200 bg-white p-3 focus:border-violet-500 focus:outline-none dark:border-violet-900/50 dark:bg-background" placeholder="08012345678" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,"").slice(0,11))}/></label>
+          <label className="block text-sm">Available reward bundle<select className="mt-1 w-full rounded-xl border border-violet-200 bg-white p-3 focus:border-violet-500 focus:outline-none dark:border-violet-900/50 dark:bg-background" value={selected?.id??""} onChange={e=>setProductId(e.target.value)}>{options.length?options.map(p=><option key={p.id} value={p.id}>{p.plan_name}</option>):<option value="">No configured 5GB plan</option>}</select></label>
           <button disabled={busy||!selected||plans.isLoading} onClick={submit} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-700 to-indigo-700 px-4 py-3 font-semibold text-white shadow-md shadow-violet-900/15 transition hover:brightness-110 disabled:opacity-50">{busy?<Loader2 className="size-4 animate-spin"/>:"Claim reward"}</button>
           <p className="text-xs text-muted-foreground">Reward delivery is provider-dependent. If a request becomes pending, do not submit again until its status is resolved.</p>
         </div>}
