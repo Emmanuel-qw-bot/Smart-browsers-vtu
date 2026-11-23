@@ -8,7 +8,7 @@ import { getMyMiniShop, saveMiniShopStore, saveMiniShopProduct, deleteMiniShopPr
 type Product={id:string;title:string;description:string;category:string;price_kobo:number;stock_quantity:number|null;image_url:string|null;is_available:boolean};
 type StoreProfile={id:string;store_name:string;slug:string;tagline:string;whatsapp_phone:string;pickup_delivery_note:string};
 type Receipt={id:string;receipt_number:string;customer_name:string;customer_phone:string;items:any[];subtotal_kobo:number;payment_status:"paid"|"unpaid";created_at:string;note:string};
-const money=(k:number)=>`₦${(k/100).toLocaleString("en-NG",{maximumFractionDigits:2})};
+const money=(k:number)=>`₦${(k/100).toLocaleString("en-NG",{maximumFractionDigits:2})}';
 const slugify=(s:string)=>s.toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40);
 
 export function CustomerMiniShop(){
