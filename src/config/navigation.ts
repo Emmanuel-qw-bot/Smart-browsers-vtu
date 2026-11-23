@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Wallet, Wifi, Smartphone, ArrowLeftRight, Receipt, Gift, Users,
   Zap, Megaphone, Bell, LifeBuoy, BarChart3, UserCog, Server, CreditCard, Tags,
   BadgePercent, Share2, Crown, PartyPopper, Sparkles, ShieldCheck, LineChart,
-  Headphones, Settings, UserCircle, type LucideIcon,
+  Headphones, Settings, UserCircle, Store, type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem {
@@ -22,6 +22,7 @@ export const customerNav: NavItem[] = [
   { slug: "transactions", label: "Transactions", icon: Receipt, description: "Every purchase, funding and conversion in one place." },
   { slug: "rewards", label: "Rewards", icon: Gift, description: "Loyalty points you earn on every purchase." },
   { slug: "referrals", label: "Referrals", icon: Users, description: "Invite friends and earn when they join." },
+  { slug: "mini-shop", label: "My Mini Shop", icon: Store, description: "Create a small online catalogue and issue receipts for customers." },
   { slug: "weekend-rush", label: "Weekend Rush", icon: Zap, description: "Weekend-only deals and giveaways." },
   { slug: "promotions", label: "Promotions", icon: Megaphone, description: "Current offers and discounts." },
   { slug: "notifications", label: "Notifications", icon: Bell, description: "Alerts about your account and purchases." },
