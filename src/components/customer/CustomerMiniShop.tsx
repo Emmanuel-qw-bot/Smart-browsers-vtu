@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Store, Package, ReceiptText, Plus, Trash2, Pencil, Share2, Loader2, CheckCircle2 } from "lucide-react";
@@ -34,6 +34,9 @@ export function CustomerMiniShop(){
   const store=data?.store as StoreProfile|null;
   const products=(data?.products??[]) as Product[];
   const receipts=(data?.receipts??[]) as Receipt[];
+  useEffect(()=>{
+    if(store&&!storeTouched) setStoreForm({store_name:store.store_name,slug:store.slug,tagline:store.tagline??"",whatsapp_phone:store.whatsapp_phone??"",pickup_delivery_note:store.pickup_delivery_note??""});
+  },[store,storeTouched]);
   const chosen=products.filter(p=>(quantities[p.id]??0)>0);
   const total=chosen.reduce((sum,p)=>sum+p.price_kobo*(quantities[p.id]??0),0);
 
