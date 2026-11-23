@@ -89,7 +89,7 @@ function SectionPage() {
                                               if (slug !== "dashboard") {
                                                 return <PageScaffold item={item} />;
                                               }
-  const quick = customerNav.filter((n) => ["buy-data", "buy-airtime", "airtime-to-cash", "wallet", "rewards", "referrals", "weekend-rush", "support"].includes(n.slug));
+  const quick = customerNav.filter((n) => ["buy-data", "squad-recharge", "buy-airtime", "airtime-to-cash", "wallet", "rewards", "referrals", "weekend-rush", "support"].includes(n.slug));
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 animate-rise">
       <DashboardWelcome />
