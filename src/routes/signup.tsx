@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MailCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,58 @@ function SignupPage() {
   const [sentTo, setSentTo] = useState("");
   const [referrerLabel, setReferrerLabel] = useState("");
   const [referralConfirmed, setReferralConfirmed] = useState(false);
+  const [checkingInvite, setCheckingInvite] = useState(false);
+
+  useEffect(() => {
+    const raw = form.inviteCode.trim().toUpperCase();
+    let cancelled = false;
+
+    if (!raw) {
+      setReferrerLabel("");
+      setReferralConfirmed(false);
+      setErrors((prev) => ({ ...prev, inviteCode: undefined }));
+      setCheckingInvite(false);
+      return;
+    }
+
+    if (raw.length < 6) {
+      setReferrerLabel("");
+      setReferralConfirmed(false);
+      setErrors((prev) => ({ ...prev, inviteCode: undefined }));
+      setCheckingInvite(false);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      if (cancelled) return;
+      setCheckingInvite(true);
+      try {
+        const { data: label, error } = await (supabase as any).rpc("invite_code_referrer_label", { _code: raw });
+        if (cancelled) return;
+        if (error || !label) {
+          setReferrerLabel("");
+          setReferralConfirmed(false);
+          setErrors((prev) => ({ ...prev, inviteCode: "This invitation code doesn't exist." }));
+        } else {
+          setReferrerLabel(String(label));
+          setReferralConfirmed(false);
+          setErrors((prev) => ({ ...prev, inviteCode: undefined }));
+        }
+      } catch {
+        if (cancelled) return;
+        setReferrerLabel("");
+        setReferralConfirmed(false);
+        setErrors((prev) => ({ ...prev, inviteCode: "Could not verify code. Please check your network." }));
+      } finally {
+        if (!cancelled) setCheckingInvite(false);
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [form.inviteCode]);
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -54,15 +106,9 @@ function SignupPage() {
         return;
       }
       if (code) {
-        const { data: ok, error } = await supabase.rpc("invite_code_is_valid", { _code: code });
-        if (error) throw error;
-        if (!ok) { setErrors({ inviteCode: "We couldn't find that invitation code" }); setReferrerLabel(""); setReferralConfirmed(false); return; }
-        if (!referralConfirmed) {
-          const { data: label, error: labelError } = await (supabase as any).rpc("invite_code_referrer_label", { _code: code });
-          if (labelError) throw labelError;
-          if (!label) { setErrors({ inviteCode: "We couldn't verify the inviter's name for this code." }); return; }
-          setReferrerLabel(String(label));
-          setReferralConfirmed(false);
+        if (errors.inviteCode) return;
+        if (!referralConfirmed || !referrerLabel) {
+          setErrors({ inviteCode: "Please confirm your inviter before submitting." });
           return;
         }
       }
@@ -133,16 +179,38 @@ function SignupPage() {
 
         <Field
           label={form.source === "friends" ? "Your friend's invitation code" : "Referral / invitation code (optional)"}
-          placeholder="SB-8KX92P" autoCapitalize="characters" value={form.inviteCode} onChange={(e) => { setForm(f => ({...f,inviteCode:e.target.value})); setReferrerLabel(""); setReferralConfirmed(false); }} error={errors.inviteCode}
+          placeholder="SB-8KX92P" autoCapitalize="characters" value={form.inviteCode}
+          onChange={(e) => {
+            const val = e.target.value.toUpperCase();
+            setForm((f) => ({ ...f, inviteCode: val }));
+            setReferrerLabel("");
+            setReferralConfirmed(false);
+          }}
+          error={errors.inviteCode}
         />
 
-        {referrerLabel && (
+        {checkingInvite && (
+          <p className="text-xs text-muted-foreground animate-pulse">Checking invitation code...</p>
+        )}
+
+        {referrerLabel && !checkingInvite && (
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">
             <p>Invitation code belongs to <strong>{referrerLabel}</strong>.</p>
             {!referralConfirmed ? (
-              <button type="button" className="mt-2 rounded-lg bg-primary px-3 py-2 text-primary-foreground" onClick={() => setReferralConfirmed(true)}>Confirm inviter</button>
-            ) : <p className="mt-1 font-medium text-primary">Inviter confirmed ✓</p>}
-            <p className="mt-1 text-xs text-muted-foreground">If this is not your friend, edit the invitation code before creating your account.</p>
+              <button
+                type="button"
+                className="mt-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
+                onClick={() => {
+                  setReferralConfirmed(true);
+                  setErrors((prev) => ({ ...prev, inviteCode: undefined }));
+                }}
+              >
+                Confirm inviter
+              </button>
+            ) : (
+              <p className="mt-1.5 text-xs font-semibold text-primary">✓ Inviter confirmed</p>
+            )}
+            <p className="mt-1 text-xs text-muted-foreground">If this is not your friend, edit or clear the code before creating your account.</p>
           </div>
         )}
         {serverError && <FormMessage>{serverError}</FormMessage>}
