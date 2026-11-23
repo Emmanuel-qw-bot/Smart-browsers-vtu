@@ -12,6 +12,7 @@ import { CustomerBadges } from "@/components/customer/CustomerBadges";
 import { DashboardWelcome } from "@/components/customer/DashboardWelcome";
 import { CustomerAirtimeCash } from "@/components/customer/CustomerAirtimeCash";
 import { CustomerReferrals } from "@/components/customer/CustomerReferrals";
+import { CustomerSquadRecharge } from "@/components/customer/CustomerSquadRecharge";
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: async ({ params, context }) => {
     const item = findNav(customerNav, params.section);
@@ -64,6 +65,8 @@ function SectionPage() {
           if (slug === "support") {
     return <PageScaffold item={item} live><CustomerSupport /></PageScaffold>;
   }
+
+  if (slug === "squad-recharge") return <PageScaffold item={item} live><CustomerSquadRecharge /></PageScaffold>;
 
   if (slug === "buy-data") {
     return (
