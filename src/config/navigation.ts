@@ -16,6 +16,7 @@ export const customerNav: NavItem[] = [
   { slug: "dashboard", label: "Dashboard", icon: LayoutDashboard, description: "Your balance, quick actions and recent activity." },
   { slug: "wallet", label: "Wallet", icon: Wallet, description: "Fund your wallet and review your balance history." },
   { slug: "buy-data", label: "Buy Data", icon: Wifi, description: "Data bundles for MTN, Airtel, Glo and 9mobile." },
+  { slug: "squad-recharge", label: "Squad Recharge", icon: Users, description: "Recharge up to five people in one batch." },
   { slug: "buy-airtime", label: "Buy Airtime", icon: Smartphone, description: "Instant airtime top-up for any Nigerian network." },
   { slug: "airtime-to-cash", label: "Airtime to Cash", icon: ArrowLeftRight, description: "Convert surplus airtime into wallet cash." },
   { slug: "transactions", label: "Transactions", icon: Receipt, description: "Every purchase, funding and conversion in one place." },
