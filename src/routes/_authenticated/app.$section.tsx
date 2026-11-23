@@ -13,6 +13,7 @@ import { DashboardWelcome } from "@/components/customer/DashboardWelcome";
 import { CustomerAirtimeCash } from "@/components/customer/CustomerAirtimeCash";
 import { CustomerReferrals } from "@/components/customer/CustomerReferrals";
 import { CustomerSquadRecharge } from "@/components/customer/CustomerSquadRecharge";
+import { CustomerMiniShop } from "@/components/customer/CustomerMiniShop";
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: async ({ params, context }) => {
     const item = findNav(customerNav, params.section);
@@ -67,6 +68,8 @@ function SectionPage() {
   }
 
   if (slug === "squad-recharge") return <PageScaffold item={item} live><CustomerSquadRecharge /></PageScaffold>;
+
+  if (slug === "mini-shop") return <PageScaffold item={item} live><CustomerMiniShop /></PageScaffold>;
 
   if (slug === "buy-data") {
     return (
