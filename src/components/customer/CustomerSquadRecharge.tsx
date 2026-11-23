@@ -79,14 +79,14 @@ export function CustomerSquadRecharge() {
     }));
   }
   function addRecipient() {
-    if (rows.length >= 5) return;
+    if (rows.length >= 10) return;
     const id = Math.max(...rows.map((r) => r.id)) + 1;
     setRows((prev) => [...prev, { id, service: "data", network: "MTN", phone: "", productId: dataProducts.find((p) => p.network_name.toLowerCase() === "mtn")?.id ?? "", amount: "100" }]);
   }
   function removeRecipient(id: number) { if (rows.length > 1) setRows((prev) => prev.filter((r) => r.id !== id)); }
 
   function validate() {
-    if (rows.length < 1 || rows.length > 5) return "Choose between 1 and 5 recipients.";
+    if (rows.length < 1 || rows.length > 10) return "Choose between 1 and 10 recipients.";
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       if (!phoneIsValid(r.phone)) return `Recipient ${i + 1}: enter a valid 11-digit Nigerian phone number.`;
@@ -140,7 +140,7 @@ export function CustomerSquadRecharge() {
       <div className="rounded-3xl bg-gradient-to-br from-primary to-primary/75 p-5 text-primary-foreground shadow-soft">
         <p className="text-xs font-semibold uppercase tracking-wider opacity-80">Squad Recharge</p>
         <h2 className="mt-1 text-xl font-bold">Recharge your people in one go</h2>
-        <p className="mt-2 text-sm opacity-90">Send data or airtime to up to 5 recipients. Review the batch and confirm once.</p>
+        <p className="mt-2 text-sm opacity-90">Send data or airtime to up to 10 recipients. Review the batch and confirm once.</p>
       </div>
       {loadError && <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{loadError}</div>}
       {loading ? <div className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground">Loading plans…</div> : (
@@ -188,7 +188,7 @@ export function CustomerSquadRecharge() {
               </article>
             );
           })}
-          <button type="button" disabled={rows.length >= 5} onClick={addRecipient} className="w-full rounded-xl border border-dashed px-4 py-3 text-sm font-semibold disabled:opacity-40">+ Add recipient ({rows.length}/5)</button>
+          <button type="button" disabled={rows.length >= 10} onClick={addRecipient} className="w-full rounded-xl border border-dashed px-4 py-3 text-sm font-semibold disabled:opacity-40">+ Add recipient ({rows.length}/10)</button>
           <div className="rounded-2xl border bg-card p-4 space-y-2">
             <div className="flex justify-between text-sm"><span>Recipients</span><strong>{rows.length}</strong></div>
             <div className="flex justify-between text-lg font-bold"><span>Estimated total</span><span>{naira(totalKobo)}</span></div>
