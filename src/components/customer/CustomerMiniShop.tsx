@@ -1,0 +1,152 @@
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { Store, Package, ReceiptText, Plus, Trash2, Pencil, Share2, Loader2, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
+import { getMyMiniShop, saveMiniShopStore, saveMiniShopProduct, deleteMiniShopProduct, issueMiniShopReceipt } from "@/lib/mini-shop.functions";
+
+type Product={id:string;title:string;description:string;category:string;price_kobo:number;stock_quantity:number|null;image_url:string|null;is_available:boolean};
+type StoreProfile={id:string;store_name:string;slug:string;tagline:string;whatsapp_phone:string;pickup_delivery_note:string};
+type Receipt={id:string;receipt_number:string;customer_name:string;customer_phone:string;items:any[];subtotal_kobo:number;payment_status:"paid"|"unpaid";created_at:string;note:string};
+const money=(k:number)=>`₦${(k/100).toLocaleString("en-NG",{maximumFractionDigits:2})};
+const slugify=(s:string)=>s.toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40);
+
+export function CustomerMiniShop(){
+  const qc=useQueryClient();
+  const q=useQuery({queryKey:["mini-shop"],queryFn:()=>getMyMiniShop()});
+  const saveStore=useServerFn(saveMiniShopStore);
+  const saveProduct=useServerFn(saveMiniShopProduct);
+  const removeProduct=useServerFn(deleteMiniShopProduct);
+  const createReceipt=useServerFn(issueMiniShopReceipt);
+  const [tab,setTab]=useState<"store"|"products"|"receipt"|"history">("store");
+  const [storeForm,setStoreForm]=useState({store_name:"",slug:"",tagline:"",whatsapp_phone:"",pickup_delivery_note:""});
+  const [storeTouched,setStoreTouched]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const [editing,setEditing]=useState<Product|null>(null);
+  const [productForm,setProductForm]=useState({title:"",description:"",category:"Other",price:"",stock:"",image_url:"",is_available:true});
+  const [customerName,setCustomerName]=useState("");
+  const [customerPhone,setCustomerPhone]=useState("");
+  const [note,setNote]=useState("");
+  const [paymentStatus,setPaymentStatus]=useState<"paid"|"unpaid">("paid");
+  const [quantities,setQuantities]=useState<Record<string,number>>({});
+  const [busy,setBusy]=useState(false);
+  const data=q.data;
+  const store=data?.store as StoreProfile|null;
+  const products=(data?.products??[]) as Product[];
+  const receipts=(data?.receipts??[]) as Receipt[];
+  const chosen=products.filter(p=>(quantities[p.id]??0)>0);
+  const total=chosen.reduce((sum,p)=>sum+p.price_kobo*(quantities[p.id]??0),0);
+
+  function syncStoreForm(){
+    setStoreForm({store_name:store?.store_name??"",slug:store?.slug??"",tagline:store?.tagline??"",whatsapp_phone:store?.whatsapp_phone??"",pickup_delivery_note:store?.pickup_delivery_note??""});
+    setStoreTouched(false);
+  }
+  async function submitStore(e:React.FormEvent){
+    e.preventDefault();setBusy(true);
+    try{await saveStore({data:storeForm});toast.success("Shop profile saved.");await qc.invalidateQueries({queryKey:["mini-shop"]});}
+    catch(err){toast.error(err instanceof Error?err.message:"Could not save profile.");}
+    finally{setBusy(false);}
+  }
+  function startProduct(p?:Product){
+    setEditing(p??null);
+    setProductForm(p?{title:p.title,description:p.description,category:p.category,price:String(p.price_kobo/100),stock:p.stock_quantity===null?"":String(p.stock_quantity),image_url:p.image_url??"",is_available:p.is_available}:{title:"",description:"",category:"Other",price:"",stock:"",image_url:"",is_available:true});
+  }
+  async function submitProduct(e:React.FormEvent){
+    e.preventDefault();if(!store){toast.error("Save your shop profile first.");return;}
+    const naira=Number(productForm.price);
+    if(!Number.isFinite(naira)||naira<=0){toast.error("Enter a valid product price.");return;}
+    setBusy(true);
+    try{
+      await saveProduct({data:{...(editing?{id:editing.id}:{}),title:productForm.title,description:productForm.description,category:productForm.category,price_kobo:Math.round(naira*100),stock_quantity:productForm.stock.trim()===""?null:Number(productForm.stock),image_url:productForm.image_url.trim()||null,is_available:productForm.is_available}});
+      toast.success(editing?"Product updated.":"Product added.");startProduct();await qc.invalidateQueries({queryKey:["mini-shop"]});
+    }catch(err){toast.error(err instanceof Error?err.message:"Could not save product.");}
+    finally{setBusy(false);}
+  }
+  async function deleteProduct(p:Product){
+    if(!confirm(`Delete "${p.title}"? This product will no longer appear in your catalogue.`))return;
+    try{await removeProduct({data:{id:p.id}});toast.success("Product deleted.");await qc.invalidateQueries({queryKey:["mini-shop"]});}
+    catch(err){toast.error(err instanceof Error?err.message:"Could not delete product.");}
+  }
+  async function makeReceipt(e:React.FormEvent){
+    e.preventDefault();if(chosen.length===0){toast.error("Select at least one product.");return;}
+    setBusy(true);
+    try{
+      const result=await createReceipt({data:{customer_name:customerName,customer_phone:customerPhone,note,payment_status:paymentStatus,items:chosen.map(p=>({product_id:p.id,quantity:quantities[p.id]}))}});
+      const r=result.receipt;
+      const textLines=[`🧾 ${result.store_name} — RECEIPT`,`Receipt: ${r.receipt_number}`,`Date: ${new Date(r.created_at).toLocaleString("en-NG")}`,r.customer_name?`Customer: ${r.customer_name}`:"",...r.items.map((it:any)=>`${it.quantity} × ${it.title} — ${money(it.line_total_kobo)}`),`TOTAL: ${money(r.subtotal_kobo)}`,`Payment: ${r.payment_status==="paid"?"PAID (confirmed by seller)":"UNPAID"}`,r.note?`Note: ${r.note}`:"",`Thank you for your patronage!`].filter(Boolean).join("\n");
+      toast.success("Receipt saved.");
+      if(r.customer_phone){window.open(`https://wa.me/${r.customer_phone.replace(/\D/g,"")}?text=${encodeURIComponent(textLines)}`,"_blank","noopener,noreferrer");}
+      else window.open(`https://wa.me/?text=${encodeURIComponent(textLines)}`,"_blank","noopener,noreferrer");
+      setCustomerName("");setCustomerPhone("");setNote("");setQuantities({});await qc.invalidateQueries({queryKey:["mini-shop"]});setTab("history");
+    }catch(err){toast.error(err instanceof Error?err.message:"Could not issue receipt.");}
+    finally{setBusy(false);}
+  }
+  function shareCatalog(){
+    if(!store){toast.error("Set up your shop first.");return;}
+    const text=[`🛍️ ${store.store_name}`,store.tagline,...products.filter(p=>p.is_available).map(p=>`${p.title} — ${money(p.price_kobo)}`),store.pickup_delivery_note,store.whatsapp_phone? `Order: ${store.whatsapp_phone}`:""].filter(Boolean).join("\n");
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank","noopener,noreferrer");
+  }
+
+  if(q.isLoading)return <div className="h-48 animate-pulse rounded-2xl bg-muted"/>;
+  if(q.error)return <div className="rounded-2xl border p-4 text-sm text-destructive">Couldn't load Mini Shop. Refresh and try again.</div>;
+
+  const tabs=[{id:"store" as const,label:"My Store",icon:Store},{id:"products" as const,label:"Products",icon:Package},{id:"receipt" as const,label:"Issue Receipt",icon:ReceiptText},{id:"history" as const,label:"Receipts",icon:CheckCircle2}];
+  return <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="rounded-2xl border bg-card p-3"><p className="text-xs text-muted-foreground">Products</p><p className="mt-1 text-xl font-bold">{products.length}</p></div>
+      <div className="rounded-2xl border bg-card p-3"><p className="text-xs text-muted-foreground">Available</p><p className="mt-1 text-xl font-bold">{products.filter(p=>p.is_available).length}</p></div>
+      <div className="rounded-2xl border bg-card p-3"><p className="text-xs text-muted-foreground">Receipts issued</p><p className="mt-1 text-xl font-bold">{receipts.length}</p></div>
+      <div className="rounded-2xl border bg-card p-3"><p className="text-xs text-muted-foreground">Shop status</p><p className="mt-1 text-xl font-bold">{store?"Set up":"Not set"}</p></div>
+    </div>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium ${tab===t.id?"bg-primary text-primary-foreground border-primary":"bg-card hover:bg-muted"}`}><t.icon className="size-4"/>{t.label}</button>)}
+    </div>
+
+    {tab==="store"&&<section className="rounded-2xl border bg-card p-4 sm:p-5">
+      <h2 className="font-display text-lg font-semibold">Store setup</h2><p className="mt-1 text-sm text-muted-foreground">Give customers the information they need to order from you.</p>
+      <form className="mt-4 space-y-3" onSubmit={submitStore}>
+        <label className="block text-sm font-medium">Shop name<input required maxLength={80} value={storeForm.store_name} onChange={e=>setStoreForm(s=>({...s,store_name:e.target.value,slug:storeTouched?s.slug:slugify(e.target.value)}))} placeholder="e.g. Chibundu Gadgets" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+        <label className="block text-sm font-medium">Your shop link name<input required minLength={3} maxLength={40} value={storeForm.slug} onChange={e=>{setStoreTouched(true);setStoreForm(s=>({...s,slug:slugify(e.target.value)}));}} placeholder="chibundu-gadgets" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/><p className="mt-1 text-xs text-muted-foreground">This will become your shareable shop address when public storefronts launch.</p></label>
+        <label className="block text-sm font-medium">Tagline<input maxLength={140} value={storeForm.tagline} onChange={e=>setStoreForm(s=>({...s,tagline:e.target.value}))} placeholder="Affordable gadgets, delivered around campus" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+        <label className="block text-sm font-medium">WhatsApp order number<input value={storeForm.whatsapp_phone} onChange={e=>setStoreForm(s=>({...s,whatsapp_phone:e.target.value}))} inputMode="tel" placeholder="08012345678" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+        <label className="block text-sm font-medium">Delivery or pickup details<textarea maxLength={500} rows={3} value={storeForm.pickup_delivery_note} onChange={e=>setStoreForm(s=>({...s,pickup_delivery_note:e.target.value}))} placeholder="Delivery areas, pickup point, opening hours..." className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+        <button disabled={busy} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{busy?<Loader2 className="mx-auto size-4 animate-spin"/>:"Save shop profile"}</button>
+      </form>
+      {store&&<button onClick={shareCatalog} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium"><Share2 className="size-4"/>Share catalogue on WhatsApp</button>}
+    </section>}
+
+    {tab==="products"&&<div className="space-y-4">
+      <section className="rounded-2xl border bg-card p-4 sm:p-5"><h2 className="font-display text-lg font-semibold">{editing?"Edit product":"Add product"}</h2>
+        {!store&&<p className="mt-2 rounded-xl bg-amber-500/10 p-3 text-sm">Create your store profile first to add products.</p>}
+        <form onSubmit={submitProduct} className="mt-3 space-y-3">
+          <label className="block text-sm font-medium">Product name<input required maxLength={120} value={productForm.title} onChange={e=>setProductForm(s=>({...s,title:e.target.value}))} placeholder="Product name" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+          <label className="block text-sm font-medium">Price (₦)<input required type="number" min="1" step="0.01" value={productForm.price} onChange={e=>setProductForm(s=>({...s,price:e.target.value}))} placeholder="2500" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+          <label className="block text-sm font-medium">Category<input maxLength={60} value={productForm.category} onChange={e=>setProductForm(s=>({...s,category:e.target.value}))} placeholder="Fashion, Food, Gadgets..." className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+          <label className="block text-sm font-medium">Description<textarea rows={2} maxLength={1000} value={productForm.description} onChange={e=>setProductForm(s=>({...s,description:e.target.value}))} className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+          <label className="block text-sm font-medium">Image URL (optional)<input type="url" value={productForm.image_url} onChange={e=>setProductForm(s=>({...s,image_url:e.target.value}))} placeholder="https://..." className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+          <label className="block text-sm font-medium">Stock quantity (leave blank if you don't track stock)<input type="number" min="0" value={productForm.stock} onChange={e=>setProductForm(s=>({...s,stock:e.target.value}))} className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={productForm.is_available} onChange={e=>setProductForm(s=>({...s,is_available:e.target.checked}))}/>Available for sale</label>
+          <div className="flex gap-2"><button disabled={busy||!store} className="flex-1 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{editing?"Update product":"Add product"}</button>{editing&&<button type="button" onClick={()=>startProduct()} className="rounded-xl border px-4 py-3">Cancel</button>}</div>
+        </form>
+      </section>
+      <section className="space-y-2"><h2 className="font-semibold">Your products ({products.length})</h2>
+        {products.length===0?<p className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">Your product catalogue is empty.</p>:products.map(p=><div key={p.id} className="flex items-center gap-3 rounded-xl border bg-card p-3"><div className="min-w-0 flex-1"><p className="truncate font-medium">{p.title}</p><p className="text-sm text-muted-foreground">{money(p.price_kobo)} · {p.is_available?"Available":"Sold out"}{p.stock_quantity!==null? ` · ${p.stock_quantity} left`:""}</p></div><button onClick={()=>startProduct(p)} aria-label="Edit product" className="rounded-lg border p-2"><Pencil className="size-4"/></button><button onClick={()=>deleteProduct(p)} aria-label="Delete product" className="rounded-lg border p-2 text-destructive"><Trash2 className="size-4"/></button></div>)}
+      </section>
+    </div>}
+
+    {tab==="receipt"&&<section className="rounded-2xl border bg-card p-4 sm:p-5"><h2 className="font-display text-lg font-semibold">Issue a receipt</h2><p className="mt-1 text-sm text-muted-foreground">Select products from your saved catalogue. Prices and totals are calculated securely.</p>
+      {products.length===0?<p className="mt-4 rounded-xl bg-muted p-3 text-sm">Add products to your shop first.</p>:<form onSubmit={makeReceipt} className="mt-4 space-y-4">
+        <div className="space-y-2">{products.map(p=><div key={p.id} className="flex items-center gap-3 rounded-xl border p-3"><div className="min-w-0 flex-1"><p className="font-medium">{p.title}</p><p className="text-sm text-muted-foreground">{money(p.price_kobo)} each</p></div><input aria-label={`Quantity of ${p.title}`} type="number" min="0" max="1000" value={quantities[p.id]??0} onChange={e=>setQuantities(q=>({...q,[p.id]:Math.max(0,Number(e.target.value)||0)}))} className="w-20 rounded-lg border bg-background p-2 text-center"/></div>)}</div>
+        <div className="rounded-xl bg-muted/60 p-4"><div className="flex justify-between text-sm"><span>Items selected</span><span>{chosen.length}</span></div><div className="mt-2 flex justify-between text-lg font-bold"><span>Total</span><span>{money(total)}</span></div></div>
+        <label className="block text-sm font-medium">Customer name (optional)<input value={customerName} onChange={e=>setCustomerName(e.target.value)} className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+        <label className="block text-sm font-medium">Customer WhatsApp/phone (optional)<input value={customerPhone} onChange={e=>setCustomerPhone(e.target.value)} inputMode="tel" placeholder="Include country code if convenient" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+        <label className="block text-sm font-medium">Payment status<select value={paymentStatus} onChange={e=>setPaymentStatus(e.target.value as "paid"|"unpaid")} className="mt-1 w-full rounded-xl border bg-background px-3 py-3"><option value="paid">Paid — confirmed by me, the seller</option><option value="unpaid">Unpaid</option></select></label>
+        <label className="block text-sm font-medium">Note (optional)<textarea maxLength={300} rows={2} value={note} onChange={e=>setNote(e.target.value)} className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+        {paymentStatus==="paid"&&<p className="rounded-lg bg-amber-500/10 p-3 text-xs">The receipt will say payment was confirmed by the seller. Smart Browsers does not independently verify this payment.</p>}
+        <button disabled={busy||total<=0} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{busy?<Loader2 className="size-4 animate-spin"/>:"Save receipt & send via WhatsApp"}</button>
+      </form>}
+    </section>}
+
+    {tab==="history"&&<section className="space-y-3"><h2 className="font-display text-lg font-semibold">Receipt history</h2>{receipts.length===0?<p className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">You haven't issued any receipts yet.</p>:receipts.map(r=><div key={r.id} className="rounded-xl border bg-card p-4"><div className="flex items-start justify-between gap-2"><div><p className="font-semibold">{r.receipt_number}</p><p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString("en-NG")}{r.customer_name?` · ${r.customer_name}`:""}</p></div><span className={`rounded-full px-2 py-1 text-xs font-semibold ${r.payment_status==="paid"?"bg-emerald-500/10 text-emerald-700":"bg-amber-500/10 text-amber-700"}`}>{r.payment_status==="paid"?"PAID":"UNPAID"}</span></div><div className="mt-2 space-y-1 text-sm">{r.items.map((it:any,i:number)=><p key={i}>{it.quantity} × {it.title} — {money(it.line_total_kobo)}</p>)}</div><p className="mt-3 border-t pt-2 text-right font-bold">Total: {money(r.subtotal_kobo)}</p><button onClick={()=>{const lines=[`🧾 ${store?.store_name??"Receipt"}`,`Receipt: ${r.receipt_number}`,...r.items.map((it:any)=>`${it.quantity} × ${it.title} — ${money(it.line_total_kobo)}`),`TOTAL: ${money(r.subtotal_kobo)}`,`Payment: ${r.payment_status==="paid"?"PAID (confirmed by seller)":"UNPAID"}`].join("\n");window.open(`https://wa.me/${r.customer_phone.replace(/\D/g,"")}?text=${encodeURIComponent(lines)}`,"_blank","noopener,noreferrer");}} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm"><Share2 className="size-4"/>Send again on WhatsApp</button></div>)}</section>}
+  </div>;
+}
