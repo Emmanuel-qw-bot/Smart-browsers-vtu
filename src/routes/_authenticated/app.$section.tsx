@@ -44,7 +44,8 @@ export const Route = createFileRoute("/_authenticated/app/$section")({
 function SectionPage() {
   const { slug } = Route.useLoaderData();
   const queryClient=useQueryClient();
-  useEffect(()=>{const types:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"],"mini-shop":["mini_shop_order"]};const selected=types[slug];if(!selected)return;supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",selected).then(()=>queryClient.invalidateQueries({queryKey:["user-notifications"]));},[slug,queryClient]);
+  useEffect(()=>{const types:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"],"mini-shop":["mini_shop_order"]};const selected=types[slug];if(!selected)return;supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",selected).then(()=>queryClient.invalidateQueries({queryKey:["user-notifications"]}));},[slug,queryClient]);
+
   const item = findNav(customerNav, slug)!;
   if (slug === "account") {
       return <PageScaffold item={item} live><AccountPanel /></PageScaffold>;
