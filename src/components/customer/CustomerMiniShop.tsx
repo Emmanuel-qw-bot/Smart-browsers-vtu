@@ -95,6 +95,14 @@ export function CustomerMiniShop(){
     try{await removeProduct({data:{id:p.id}});toast.success("Product deleted.");await qc.invalidateQueries({queryKey:["mini-shop"]});}
     catch(err){toast.error(err instanceof Error?err.message:"Could not delete product.");}
   }
+  function printLiveReceipt(){
+    const node=document.getElementById("mini-shop-receipt-preview");
+    if(!node)return;
+    const popup=window.open("","_blank","width=500,height=800");
+    if(!popup){toast.error("Please allow pop-ups to print your receipt.");return;}
+    popup.document.write("<!doctype html><html><head><title>Smart Browsers Receipt</title><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>body{font-family:Arial,sans-serif;padding:12px;background:white;color:#111}#paper{max-width:420px;margin:auto;border:1px solid #ddd;padding:16px;position:relative;overflow:hidden}.watermark{opacity:.065}.stamp{border:3px solid #c2410c;color:#c2410c;border-radius:50%;transform:rotate(-12deg)}@media print{body{padding:0}#paper{border:0;box-shadow:none}}</style></head><body><div id=\"paper\">"+node.innerHTML+"</div><script>window.onload=function(){setTimeout(function(){window.print()},250)}<\\/script></body></html>");
+    popup.document.close();
+  }
   async function makeReceipt(e:React.FormEvent){
     e.preventDefault();if(chosen.length===0){toast.error("Select at least one product.");return;}
     setBusy(true);
@@ -201,7 +209,7 @@ export function CustomerMiniShop(){
         <label className="block text-sm font-medium">Payment status<select value={paymentStatus} onChange={e=>setPaymentStatus(e.target.value as "paid"|"unpaid")} className="mt-1 w-full rounded-xl border bg-background px-3 py-3"><option value="paid">Paid — confirmed by me, the seller</option><option value="unpaid">Unpaid</option></select></label>
         <label className="block text-sm font-medium">Note (optional)<textarea maxLength={300} rows={2} value={note} onChange={e=>setNote(e.target.value)} className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
         {paymentStatus==="paid"&&<p className="rounded-lg bg-amber-500/10 p-3 text-xs">The receipt will say payment was confirmed by the seller. Smart Browsers does not independently verify this payment.</p>}
-        <button disabled={busy||total<=0} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{busy?<Loader2 className="size-4 animate-spin"/>:"Save receipt & send via WhatsApp"}</button>
+        <button type="button" disabled={total<=0} onClick={printLiveReceipt} className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-300 bg-orange-50 px-4 py-3 font-semibold text-orange-800 disabled:opacity-50"><ReceiptText className="size-4"/>Print / Save paper receipt as PDF</button><button disabled={busy||total<=0} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{busy?<Loader2 className="size-4 animate-spin"/>:"Save receipt & send via WhatsApp"}</button>
       </form>}
     </section>}
 
