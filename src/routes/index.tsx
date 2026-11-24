@@ -37,7 +37,7 @@ function Welcome() {
 
   if(publicProductId)return <PublicProductPage productId={publicProductId}/>;
 
-  if (splash {
+  if (splash) {
     return (
       <div className="fixed inset-0 grid place-items-center bg-brand px-6 text-primary-foreground" onClick={() => setSplash(false)}>
         <div className="w-full max-w-md text-center">
