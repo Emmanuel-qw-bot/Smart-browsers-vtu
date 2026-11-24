@@ -11,7 +11,8 @@ type MarketProduct=Product & {vendor_stores?:{store_name:string;slug:string;what
 const NIGERIAN_STATES=["Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno","Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT Abuja","Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba","Yobe","Zamfara"];
 const PRODUCT_CATEGORIES=["Fashion & Clothing","Electronics & Gadgets","Phones & Accessories","Beauty & Personal Care","Home & Kitchen Appliances","Food & Drinks","Books & Stationery","Shoes & Bags","Jewellery & Accessories","Baby & Kids","Sports & Fitness","Services","Other"];
 type StoreProfile={id:string;store_name:string;slug:string;tagline:string;whatsapp_phone:string;pickup_delivery_note:string};
-type Receipt={id:string;receipt_number:string;customer_name:string;customer_phone:string;items:any[];subtotal_kobo:number;payment_status:"paid"|"unpaid";created_at:string;note:string};\ntype VendorOrder={id:string;order_number:string;buyer_name:string;buyer_phone:string;delivery_location:string;buyer_note:string;status:string;payment_status:string;total_kobo:number;created_at:string;vendor_order_items:any[]};
+type Receipt={id:string;receipt_number:string;customer_name:string;customer_phone:string;items:any[];subtotal_kobo:number;payment_status:"paid"|"unpaid";created_at:string;note:string};
+type VendorOrder={id:string;order_number:string;buyer_name:string;buyer_phone:string;delivery_location:string;buyer_note:string;status:string;payment_status:string;total_kobo:number;created_at:string;vendor_order_items:any[]};
 const money=(k:number)=>`₦${(k/100).toLocaleString("en-NG",{maximumFractionDigits:2})}`;
 const slugify=(s:string)=>s.toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40);
 
@@ -45,7 +46,10 @@ export function CustomerMiniShop(){
   const data=q.data;
   const store=data?.store as StoreProfile|null;
   const products=(data?.products??[]) as Product[];
-  const receipts=(data?.receipts??[]) as Receipt[];\n  const ordersQuery=useQuery({queryKey:["mini-shop-orders",store?.id],enabled:!!store,queryFn:async()=>{const {data,error}=await supabase.from("vendor_orders" as any).select("*,vendor_order_items(*)").eq("store_id",store!.id).order("created_at",{ascending:false}).limit(200);if(error)throw error;return (data??[]) as unknown as VendorOrder[];}});\n  const orders=ordersQuery.data??[];\n  async function updateOrder(id:string,changes:Record<string,any>){try{const {error}=await supabase.from("vendor_orders" as any).update(changes).eq("id",id);if(error)throw error;toast.success("Order updated.");await qc.invalidateQueries({queryKey:["mini-shop-orders",store?.id]});}catch(err){toast.error(err instanceof Error?err.message:"Could not update order.");}}
+  const receipts=(data?.receipts??[]) as Receipt[];
+  const ordersQuery=useQuery({queryKey:["mini-shop-orders",store?.id],enabled:!!store,queryFn:async()=>{const {data,error}=await supabase.from("vendor_orders" as any).select("*,vendor_order_items(*)").eq("store_id",store!.id).order("created_at",{ascending:false}).limit(200);if(error)throw error;return (data??[]) as unknown as VendorOrder[];}});
+  const orders=ordersQuery.data??[];
+  async function updateOrder(id:string,changes:Record<string,any>){try{const {error}=await supabase.from("vendor_orders" as any).update(changes).eq("id",id);if(error)throw error;toast.success("Order updated.");await qc.invalidateQueries({queryKey:["mini-shop-orders",store?.id]});}catch(err){toast.error(err instanceof Error?err.message:"Could not update order.");}}
   useEffect(()=>{
     if(store&&!storeTouched) setStoreForm({store_name:store.store_name,slug:store.slug,tagline:store.tagline??"",whatsapp_phone:store.whatsapp_phone??"",pickup_delivery_note:store.pickup_delivery_note??""});
   },[store,storeTouched]);
