@@ -14,6 +14,7 @@ const productSchema=z.object({
   title:z.string().trim().min(1).max(120),
   description:z.string().max(1000).default(""),
   category:z.string().max(60).default("Other"),
+  state:z.string().min(1).max(40),
   price_kobo:z.number().int().positive().max(100000000),
   stock_quantity:z.number().int().nonnegative().nullable().default(null),
   image_url:z.string().url().max(2000).nullable().optional(),
