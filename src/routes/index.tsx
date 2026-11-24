@@ -20,7 +20,15 @@ export const Route = createFileRoute("/")({
 });
 
 function Welcome() {
-  const [splash, setSplash] = useState(true);\n  const [publicProductId,setPublicProductId]=useState<string|null>(null);\n  useEffect(()=>{const id=new URLSearchParams(window.location.search).get("product");if(id){setPublicProductId(id);setSplash(false);}},[]);
+  const [splash, setSplash] = useState(true);
+  const [publicProductId, setPublicProductId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("product");
+    if (id) {
+      setPublicProductId(id);
+      setSplash(false);
+    }
+  }, []);
   useEffect(() => {
     if(publicProductId)return;
     const t = setTimeout(() => setSplash(false), 3600);
