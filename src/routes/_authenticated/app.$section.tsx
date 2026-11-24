@@ -44,6 +44,10 @@ export const Route = createFileRoute("/_authenticated/app/$section")({
 function SectionPage() {
   const { slug } = Route.useLoaderData();
   const queryClient=useQueryClient();
+  const notificationsQuery=useQuery({queryKey:["user-notifications"],queryFn:async()=>{const {data,error}=await supabase.from("user_notifications" as any).select("notification_type").is("read_at",null);if(error)throw error;return (data??[]) as {notification_type:string}[];},refetchInterval:30000});
+  const unread=notificationsQuery.data??[];
+  const badgeTypes:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"],"mini-shop":["mini_shop_order"]};
+  async function clearBadge(slug:string){const types=badgeTypes[slug];if(!types)return;await supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",types);await queryClient.invalidateQueries({queryKey:["user-notifications"]});}
   useEffect(()=>{const types:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"],"mini-shop":["mini_shop_order"]};const selected=types[slug];if(!selected)return;supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",selected).then(()=>queryClient.invalidateQueries({queryKey:["user-notifications"]}));},[slug,queryClient]);
 
   const item = findNav(customerNav, slug)!;
@@ -99,10 +103,7 @@ function SectionPage() {
                                                 return <PageScaffold item={item} />;
                                               }
   const quick = customerNav.filter((n) => ["buy-data", "squad-recharge", "buy-airtime", "airtime-to-cash", "wallet", "rewards", "referrals", "weekend-rush", "support", "mini-shop"].includes(n.slug));
-  const notificationsQuery=useQuery({queryKey:["user-notifications"],queryFn:async()=>{const {data,error}=await supabase.from("user_notifications" as any).select("notification_type").is("read_at",null);if(error)throw error;return (data??[]) as {notification_type:string}[];},refetchInterval:30000});
-  const unread=notificationsQuery.data??[];
-  const badgeTypes:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"],"mini-shop":["mini_shop_order"]};
-  async function clearBadge(slug:string){const types=badgeTypes[slug];if(!types)return;await supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",types);await queryClient.invalidateQueries({queryKey:["user-notifications"]});}
+
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 animate-rise">
       <DashboardWelcome />
