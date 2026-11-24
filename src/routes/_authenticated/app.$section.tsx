@@ -1,4 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { customerNav, findNav } from "@/config/navigation";
 import { PageScaffold } from "@/components/shared/PageScaffold";
 import { AccountPanel } from "@/components/customer/AccountPanel";
@@ -40,6 +43,8 @@ export const Route = createFileRoute("/_authenticated/app/$section")({
 
 function SectionPage() {
   const { slug } = Route.useLoaderData();
+  const queryClient=useQueryClient();
+  useEffect(()=>{const types:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"],"mini-shop":["mini_shop_order"]};const selected=types[slug];if(!selected)return;supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",selected).then(()=>queryClient.invalidateQueries({queryKey:["user-notifications"]));},[slug,queryClient]);
   const item = findNav(customerNav, slug)!;
   if (slug === "account") {
       return <PageScaffold item={item} live><AccountPanel /></PageScaffold>;
@@ -93,6 +98,10 @@ function SectionPage() {
                                                 return <PageScaffold item={item} />;
                                               }
   const quick = customerNav.filter((n) => ["buy-data", "squad-recharge", "buy-airtime", "airtime-to-cash", "wallet", "rewards", "referrals", "weekend-rush", "support", "mini-shop"].includes(n.slug));
+  const notificationsQuery=useQuery({queryKey:["user-notifications"],queryFn:async()=>{const {data,error}=await supabase.from("user_notifications" as any).select("notification_type").is("read_at",null);if(error)throw error;return (data??[]) as {notification_type:string}[];},refetchInterval:30000});
+  const unread=notificationsQuery.data??[];
+  const badgeTypes:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"],"mini-shop":["mini_shop_order"]};
+  async function clearBadge(slug:string){const types=badgeTypes[slug];if(!types)return;await supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",types);await queryClient.invalidateQueries({queryKey:["user-notifications"]});}
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 animate-rise">
       <DashboardWelcome />
@@ -114,9 +123,10 @@ function SectionPage() {
           };
           const style = styles[q.slug] ?? { tile: "bg-card border-border", icon: "bg-secondary text-secondary-foreground" };
           return (
-            <Link key={q.slug} to="/app/$section" params={{ section: q.slug }} className={"flex flex-col items-center gap-2 rounded-2xl border p-3 text-center text-[11px] font-medium shadow-soft transition active:scale-95 " + style.tile}>
+            <Link key={q.slug} to="/app/$section" params={{ section: q.slug }} onClick={()=>{void clearBadge(q.slug)}} className={"relative flex flex-col items-center gap-2 rounded-2xl border p-3 text-center text-[11px] font-medium shadow-soft transition active:scale-95 " + style.tile}>
               <span className={"grid size-10 place-items-center rounded-xl " + style.icon}><q.icon className="size-5" /></span>
               {q.label}
+              {badgeTypes[q.slug]&&unread.filter(n=>badgeTypes[q.slug].includes(n.notification_type)).length>0&&<span className="absolute right-1 top-1 min-w-5 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-4 text-white shadow">{unread.filter(n=>badgeTypes[q.slug].includes(n.notification_type)).length>99?"99+":unread.filter(n=>badgeTypes[q.slug].includes(n.notification_type)).length}</span>}
             </Link>
           );
         })}
