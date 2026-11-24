@@ -44,8 +44,8 @@ export const Route = createFileRoute("/_authenticated/app/$section")({
 function SectionPage() {
   const { slug } = Route.useLoaderData();
   const queryClient=useQueryClient();
-  const notificationsQuery=useQuery({queryKey:["user-notifications"],queryFn:async()=>{const {data,error}=await supabase.from("user_notifications" as any).select("notification_type").is("read_at",null);if(error)throw error;return (data??[]) as {notification_type:string}[];},refetchInterval:30000});
-  const unread=notificationsQuery.data??[];
+  const notificationsQuery=useQuery({queryKey:["user-notifications"],queryFn:async()=>{const {data,error}=await supabase.from("user_notifications" as any).select("id,notification_type,title,message,created_at,read_at,action_path").order("created_at",{ascending:false}).limit(30);if(error)throw error;return (data??[]) as {id:string;notification_type:string;title:string;message:string;created_at:string;read_at:string|null;action_path:string|null}[];},refetchInterval:30000});
+  const notifications=notificationsQuery.data??[];\n  const unread=notifications.filter(n=>!n.read_at);
   const badgeTypes:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"],"mini-shop":["mini_shop_order"]};
   async function clearBadge(slug:string){const types=badgeTypes[slug];if(!types)return;await supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",types);await queryClient.invalidateQueries({queryKey:["user-notifications"]});}
   useEffect(()=>{const types:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"],"mini-shop":["mini_shop_order"]};const selected=types[slug];if(!selected)return;supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",selected).then(()=>queryClient.invalidateQueries({queryKey:["user-notifications"]}));},[slug,queryClient]);
@@ -133,6 +133,7 @@ function SectionPage() {
           );
         })}
       </div>
+      {notifications.length>0&&<section className="space-y-3"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-semibold">Notifications</h2><span className="text-xs text-muted-foreground">{unread.length} unread</span></div><div className="space-y-2">{notifications.slice(0,6).map(n=><article key={n.id} className={"rounded-xl border p-3 "+(!n.read_at?"border-primary/30 bg-primary/5":"bg-card")}><div className="flex items-start gap-2"><div className="min-w-0 flex-1"><p className="text-sm font-semibold">{n.title}</p><p className="mt-1 text-xs text-muted-foreground">{n.message}</p><p className="mt-1 text-[10px] text-muted-foreground">{new Date(n.created_at).toLocaleString("en-NG")}</p></div>{!n.read_at&&<button type="button" onClick={async()=>{await supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).eq("id",n.id);await queryClient.invalidateQueries({queryKey:["user-notifications"]});}} className="rounded-lg border px-2 py-1 text-[10px] font-medium">Mark read</button>}</div></article>)}</div></section>}
       <h2 className="font-display text-lg font-semibold">Recent transactions</h2>
       <TransactionList limit={2} />
     </div>
