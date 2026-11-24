@@ -22,11 +22,14 @@ export const Route = createFileRoute("/")({
 function Welcome() {
   const [splash, setSplash] = useState(true);\n  const [publicProductId,setPublicProductId]=useState<string|null>(null);\n  useEffect(()=>{const id=new URLSearchParams(window.location.search).get("product");if(id){setPublicProductId(id);setSplash(false);}},[]);
   useEffect(() => {
-    if(publicProductId)return;\n    const t = setTimeout(() => setSplash(false), 3600);
+    if(publicProductId)return;
+    const t = setTimeout(() => setSplash(false), 3600);
     return () => clearTimeout(t);
   }, []);
 
-  if(publicProductId)return <PublicProductPage productId={publicProductId}/>;\n\n  if (splash) {
+  if(publicProductId)return <PublicProductPage productId={publicProductId}/>;
+
+  if (splash {
     return (
       <div className="fixed inset-0 grid place-items-center bg-brand px-6 text-primary-foreground" onClick={() => setSplash(false)}>
         <div className="w-full max-w-md text-center">
