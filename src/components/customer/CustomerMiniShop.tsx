@@ -114,9 +114,9 @@ export function CustomerMiniShop(){
     <div className="rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 p-4 text-white shadow-md"><div className="flex items-center gap-2"><Store className="size-6"/><div><h1 className="text-xl font-bold">My Mini Shop</h1><p className="text-sm text-orange-50">Your business, beautifully presented.</p></div></div></div>
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <div className="rounded-2xl border border-orange-100 bg-white p-3 shadow-sm dark:border-orange-900 dark:bg-card"><p className="text-xs text-muted-foreground">Products</p><p className="mt-1 text-xl font-bold">{products.length}</p></div>
-      <div className="rounded-2xl border bg-card p-3"><p className="text-xs text-muted-foreground">Available</p><p className="mt-1 text-xl font-bold">{products.filter(p=>p.is_available).length}</p></div>
-      <div className="rounded-2xl border bg-card p-3"><p className="text-xs text-muted-foreground">Receipts issued</p><p className="mt-1 text-xl font-bold">{receipts.length}</p></div>
-      <div className="rounded-2xl border bg-card p-3"><p className="text-xs text-muted-foreground">Shop status</p><p className="mt-1 text-xl font-bold">{store?"Set up":"Not set"}</p></div>
+      <div className="rounded-2xl border border-orange-100 bg-white p-3 shadow-sm dark:border-orange-900 dark:bg-card"><p className="text-xs text-muted-foreground">Available</p><p className="mt-1 text-xl font-bold">{products.filter(p=>p.is_available).length}</p></div>
+      <div className="rounded-2xl border border-orange-100 bg-white p-3 shadow-sm dark:border-orange-900 dark:bg-card"><p className="text-xs text-muted-foreground">Receipts issued</p><p className="mt-1 text-xl font-bold">{receipts.length}</p></div>
+      <div className="rounded-2xl border border-orange-100 bg-white p-3 shadow-sm dark:border-orange-900 dark:bg-card"><p className="text-xs text-muted-foreground">Shop status</p><p className="mt-1 text-xl font-bold">{store?"Set up":"Not set"}</p></div>
     </div>
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium ${tab===t.id?"bg-orange-500 text-white border-orange-500 shadow-sm":"bg-white border-orange-100 hover:bg-orange-50 dark:bg-card dark:border-orange-900"}`}><t.icon className="size-4"/>{t.label}</button>)}
@@ -136,7 +136,7 @@ export function CustomerMiniShop(){
     </section>}
 
     {tab==="products"&&<div className="space-y-4">
-      <section className="rounded-2xl border bg-card p-4 sm:p-5"><h2 className="font-display text-lg font-semibold">{editing?"Edit product":"Add product"}</h2>
+      <section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm dark:border-orange-900 dark:bg-card sm:p-5"><h2 className="font-display text-lg font-semibold text-orange-800 dark:text-orange-300">{editing?"Edit product":"Add product"}</h2>
         {!store&&<p className="mt-2 rounded-xl bg-amber-500/10 p-3 text-sm">Create your store profile first to add products.</p>}
         <form onSubmit={submitProduct} className="mt-3 space-y-3">
           <label className="block text-sm font-medium">Product name<input required maxLength={120} value={productForm.title} onChange={e=>setProductForm(s=>({...s,title:e.target.value}))} placeholder="Product name" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
