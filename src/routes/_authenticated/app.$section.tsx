@@ -48,8 +48,8 @@ function SectionPage() {
   const notifications=notificationsQuery.data??[];
   const unread=notifications.filter(n=>!n.read_at);
   const badgeTypes:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"],"mini-shop":["mini_shop_order"]};
-  async function clearBadge(slug:string){const types=badgeTypes[slug];if(!types)return;await supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",types);await queryClient.invalidateQueries({queryKey:["user-notifications"]});}
-  useEffect(()=>{const types:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"],"mini-shop":["mini_shop_order"]};const selected=types[slug];if(!selected)return;supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",selected).then(()=>queryClient.invalidateQueries({queryKey:["user-notifications"]}));},[slug,queryClient]);
+  async function clearBadge(slug:string){if(slug==="mini-shop")return;const types=badgeTypes[slug];if(!types)return;await supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",types);await queryClient.invalidateQueries({queryKey:["user-notifications"]});}
+  useEffect(()=>{const types:Record<string,string[]>={wallet:["wallet_credit"],rewards:["reward_ready"],"weekend-rush":["weekend_rush"]};const selected=types[slug];if(!selected)return;supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).is("read_at",null).in("notification_type",selected).then(()=>queryClient.invalidateQueries({queryKey:["user-notifications"]}));},[slug,queryClient]);
 
   const item = findNav(customerNav, slug)!;
   if (slug === "account") {
