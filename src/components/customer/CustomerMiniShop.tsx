@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Store, Package, ReceiptText, Plus, Trash2, Pencil, Share2, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { getMyMiniShop, saveMiniShopStore, saveMiniShopProduct, deleteMiniShopProduct, issueMiniShopReceipt } from "@/lib/mini-shop.functions";
 
 type Product={id:string;title:string;description:string;category:string;price_kobo:number;stock_quantity:number|null;image_url:string|null;is_available:boolean};
@@ -24,6 +25,8 @@ export function CustomerMiniShop(){
   const [saving,setSaving]=useState(false);
   const [editing,setEditing]=useState<Product|null>(null);
   const [productForm,setProductForm]=useState({title:"",description:"",category:"Other",price:"",stock:"",image_url:"",is_available:true});
+  const [productImage,setProductImage]=useState<File|null>(null);
+  const [imagePreview,setImagePreview]=useState("");
   const [customerName,setCustomerName]=useState("");
   const [customerPhone,setCustomerPhone]=useState("");
   const [note,setNote]=useState("");
@@ -53,14 +56,27 @@ export function CustomerMiniShop(){
   function startProduct(p?:Product){
     setEditing(p??null);
     setProductForm(p?{title:p.title,description:p.description,category:p.category,price:String(p.price_kobo/100),stock:p.stock_quantity===null?"":String(p.stock_quantity),image_url:p.image_url??"",is_available:p.is_available}:{title:"",description:"",category:"Other",price:"",stock:"",image_url:"",is_available:true});
+    setProductImage(null);setImagePreview(p?.image_url??"");
   }
   async function submitProduct(e:React.FormEvent){
     e.preventDefault();if(!store){toast.error("Save your shop profile first.");return;}
     const naira=Number(productForm.price);
     if(!Number.isFinite(naira)||naira<=0){toast.error("Enter a valid product price.");return;}
+    if(!productImage&&!productForm.image_url){toast.error("Please upload a product image.");return;}
     setBusy(true);
     try{
-      await saveProduct({data:{...(editing?{id:editing.id}:{}),title:productForm.title,description:productForm.description,category:productForm.category,price_kobo:Math.round(naira*100),stock_quantity:productForm.stock.trim()===""?null:Number(productForm.stock),image_url:productForm.image_url.trim()||null,is_available:productForm.is_available}});
+      let imageUrl=productForm.image_url;
+      if(productImage){
+        const {data:userData}=await supabase.auth.getUser();
+        if(!userData.user)throw new Error("Please sign in again before uploading.");
+        const ext=productImage.name.split(".").pop()?.toLowerCase()||"jpg";
+        const path=`${userData.user.id}/${store.id}/${crypto.randomUUID()}.${ext}`;
+        const {error:uploadError}=await supabase.storage.from("mini-shop-product-images").upload(path,productImage,{cacheControl:"3600",upsert:false,contentType:productImage.type});
+        if(uploadError)throw new Error("Image upload failed. Check the file and try again.");
+        const {data:publicData}=supabase.storage.from("mini-shop-product-images").getPublicUrl(path);
+        imageUrl=publicData.publicUrl;
+      }
+      await saveProduct({data:{...(editing?{id:editing.id}:{}),title:productForm.title,description:productForm.description,category:productForm.category,price_kobo:Math.round(naira*100),stock_quantity:productForm.stock.trim()===""?null:Number(productForm.stock),image_url:imageUrl,is_available:productForm.is_available}});
       toast.success(editing?"Product updated.":"Product added.");startProduct();await qc.invalidateQueries({queryKey:["mini-shop"]});
     }catch(err){toast.error(err instanceof Error?err.message:"Could not save product.");}
     finally{setBusy(false);}
@@ -94,18 +110,19 @@ export function CustomerMiniShop(){
   if(q.error)return <div className="rounded-2xl border p-4 text-sm text-destructive">Couldn't load Mini Shop. Refresh and try again.</div>;
 
   const tabs=[{id:"store" as const,label:"My Store",icon:Store},{id:"products" as const,label:"Products",icon:Package},{id:"receipt" as const,label:"Issue Receipt",icon:ReceiptText},{id:"history" as const,label:"Receipts",icon:CheckCircle2}];
-  return <div className="space-y-4">
+  return <div className="space-y-4 rounded-3xl bg-gradient-to-b from-orange-50 via-white to-amber-50 p-3 dark:from-orange-950/25 dark:via-background dark:to-amber-950/15">
+    <div className="rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 p-4 text-white shadow-md"><div className="flex items-center gap-2"><Store className="size-6"/><div><h1 className="text-xl font-bold">My Mini Shop</h1><p className="text-sm text-orange-50">Your business, beautifully presented.</p></div></div></div>
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div className="rounded-2xl border bg-card p-3"><p className="text-xs text-muted-foreground">Products</p><p className="mt-1 text-xl font-bold">{products.length}</p></div>
+      <div className="rounded-2xl border border-orange-100 bg-white p-3 shadow-sm dark:border-orange-900 dark:bg-card"><p className="text-xs text-muted-foreground">Products</p><p className="mt-1 text-xl font-bold">{products.length}</p></div>
       <div className="rounded-2xl border bg-card p-3"><p className="text-xs text-muted-foreground">Available</p><p className="mt-1 text-xl font-bold">{products.filter(p=>p.is_available).length}</p></div>
       <div className="rounded-2xl border bg-card p-3"><p className="text-xs text-muted-foreground">Receipts issued</p><p className="mt-1 text-xl font-bold">{receipts.length}</p></div>
       <div className="rounded-2xl border bg-card p-3"><p className="text-xs text-muted-foreground">Shop status</p><p className="mt-1 text-xl font-bold">{store?"Set up":"Not set"}</p></div>
     </div>
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium ${tab===t.id?"bg-primary text-primary-foreground border-primary":"bg-card hover:bg-muted"}`}><t.icon className="size-4"/>{t.label}</button>)}
+      {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium ${tab===t.id?"bg-orange-500 text-white border-orange-500 shadow-sm":"bg-white border-orange-100 hover:bg-orange-50 dark:bg-card dark:border-orange-900"}`}><t.icon className="size-4"/>{t.label}</button>)}
     </div>
 
-    {tab==="store"&&<section className="rounded-2xl border bg-card p-4 sm:p-5">
+    {tab==="store"&&<section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm dark:border-orange-900 dark:bg-card sm:p-5">
       <h2 className="font-display text-lg font-semibold">Store setup</h2><p className="mt-1 text-sm text-muted-foreground">Give customers the information they need to order from you.</p>
       <form className="mt-4 space-y-3" onSubmit={submitStore}>
         <label className="block text-sm font-medium">Shop name<input required maxLength={80} value={storeForm.store_name} onChange={e=>setStoreForm(s=>({...s,store_name:e.target.value,slug:storeTouched?s.slug:slugify(e.target.value)}))} placeholder="e.g. Chibundu Gadgets" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
@@ -126,14 +143,23 @@ export function CustomerMiniShop(){
           <label className="block text-sm font-medium">Price (₦)<input required type="number" min="1" step="0.01" value={productForm.price} onChange={e=>setProductForm(s=>({...s,price:e.target.value}))} placeholder="2500" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
           <label className="block text-sm font-medium">Category<input maxLength={60} value={productForm.category} onChange={e=>setProductForm(s=>({...s,category:e.target.value}))} placeholder="Fashion, Food, Gadgets..." className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
           <label className="block text-sm font-medium">Description<textarea rows={2} maxLength={1000} value={productForm.description} onChange={e=>setProductForm(s=>({...s,description:e.target.value}))} className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
-          <label className="block text-sm font-medium">Image URL (optional)<input type="url" value={productForm.image_url} onChange={e=>setProductForm(s=>({...s,image_url:e.target.value}))} placeholder="https://..." className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+          <div className="space-y-2">
+          <label className="block text-sm font-medium">Product photo <span className="text-orange-600">* Required</span></label>
+          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-orange-300 bg-orange-50 px-4 py-5 text-center dark:border-orange-800 dark:bg-orange-950/20">
+            {imagePreview?<img src={imagePreview} alt="Product image preview" className="max-h-48 max-w-full rounded-xl object-contain"/>:<div className="grid size-14 place-items-center rounded-2xl bg-orange-100 text-orange-600 dark:bg-orange-900/40"><Plus className="size-7"/></div>}
+            <span className="font-semibold text-orange-800 dark:text-orange-300">{imagePreview?"Change product image":"Tap to upload product image"}</span>
+            <span className="text-xs text-muted-foreground">JPG, PNG, WEBP · max 5 MB</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>5*1024*1024){toast.error("Image must be 5 MB or smaller.");e.currentTarget.value="";return;}if(!["image/jpeg","image/png","image/webp"].includes(file.type)){toast.error("Upload JPG, PNG, or WEBP.");e.currentTarget.value="";return;}setProductImage(file);setImagePreview(URL.createObjectURL(file));setProductForm(s=>({...s,image_url:""}));}}/>
+          </label>
+          {imagePreview&&<button type="button" onClick={()=>{setProductImage(null);setImagePreview("");setProductForm(s=>({...s,image_url:""}));}} className="text-sm text-destructive underline">Remove image</button>}
+        </div>
           <label className="block text-sm font-medium">Stock quantity (leave blank if you don't track stock)<input type="number" min="0" value={productForm.stock} onChange={e=>setProductForm(s=>({...s,stock:e.target.value}))} className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={productForm.is_available} onChange={e=>setProductForm(s=>({...s,is_available:e.target.checked}))}/>Available for sale</label>
           <div className="flex gap-2"><button disabled={busy||!store} className="flex-1 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{editing?"Update product":"Add product"}</button>{editing&&<button type="button" onClick={()=>startProduct()} className="rounded-xl border px-4 py-3">Cancel</button>}</div>
         </form>
       </section>
-      <section className="space-y-2"><h2 className="font-semibold">Your products ({products.length})</h2>
-        {products.length===0?<p className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">Your product catalogue is empty.</p>:products.map(p=><div key={p.id} className="flex items-center gap-3 rounded-xl border bg-card p-3"><div className="min-w-0 flex-1"><p className="truncate font-medium">{p.title}</p><p className="text-sm text-muted-foreground">{money(p.price_kobo)} · {p.is_available?"Available":"Sold out"}{p.stock_quantity!==null? ` · ${p.stock_quantity} left`:""}</p></div><button onClick={()=>startProduct(p)} aria-label="Edit product" className="rounded-lg border p-2"><Pencil className="size-4"/></button><button onClick={()=>deleteProduct(p)} aria-label="Delete product" className="rounded-lg border p-2 text-destructive"><Trash2 className="size-4"/></button></div>)}
+      <section className="space-y-2"><h2 className="font-semibold text-orange-800 dark:text-orange-300">Your products ({products.length})</h2>
+        {products.length===0?<p className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">Your product catalogue is empty.</p>:products.map(p=><div key={p.id} className="flex items-center gap-3 rounded-xl border border-orange-100 bg-white p-3 shadow-sm dark:border-orange-900 dark:bg-card"><img src={p.image_url||""} alt={p.title} className="size-16 rounded-xl bg-orange-50 object-cover"/><div className="min-w-0 flex-1"><p className="truncate font-medium">{p.title}</p><p className="text-sm text-muted-foreground">{money(p.price_kobo)} · {p.is_available?"Available":"Sold out"}{p.stock_quantity!==null? ` · ${p.stock_quantity} left`:""}</p></div><button onClick={()=>startProduct(p)} aria-label="Edit product" className="rounded-lg border p-2"><Pencil className="size-4"/></button><button onClick={()=>deleteProduct(p)} aria-label="Delete product" className="rounded-lg border p-2 text-destructive"><Trash2 className="size-4"/></button></div>)}
       </section>
     </div>}
 
