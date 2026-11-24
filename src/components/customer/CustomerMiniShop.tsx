@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Store, Package, ReceiptText, Plus, Trash2, Pencil, Share2, Loader2, CheckCircle2, Search, ShoppingBag, MapPin, ArrowLeft, MessageCircle, Tag } from "lucide-react";
+import { Store, Package, ReceiptText, Plus, Trash2, Pencil, Share2, Loader2, CheckCircle2, Search, ShoppingBag, MapPin, ArrowLeft, MessageCircle, Tag, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getMyMiniShop, saveMiniShopStore, saveMiniShopProduct, deleteMiniShopProduct, issueMiniShopReceipt } from "@/lib/mini-shop.functions";
@@ -117,6 +117,8 @@ export function CustomerMiniShop(){
     }catch(err){toast.error(err instanceof Error?err.message:"Could not issue receipt.");}
     finally{setBusy(false);}
   }
+  function productLink(p:Product){return `${window.location.origin}/?product=${encodeURIComponent(p.id)}`;}
+  async function shareProduct(p:Product){const url=productLink(p);try{await navigator.clipboard.writeText(url);toast.success("Product link copied. Share it anywhere!");}catch{window.prompt("Copy your product link:",url);}}
   function shareCatalog(){
     if(!store){toast.error("Set up your shop first.");return;}
     const text=[`🛍️ ${store.store_name}`,store.tagline,...products.filter(p=>p.is_available).map(p=>`${p.title} — ${money(p.price_kobo)}`),store.pickup_delivery_note,store.whatsapp_phone? `Order: ${store.whatsapp_phone}`:""].filter(Boolean).join("\n");
@@ -180,7 +182,7 @@ export function CustomerMiniShop(){
         </form>
       </section>
       <section className="space-y-2"><h2 className="font-semibold text-orange-800 dark:text-orange-300">Your products ({products.length})</h2>
-        {products.length===0?<p className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">Your product catalogue is empty.</p>:products.map(p=><div key={p.id} className="flex items-center gap-3 rounded-xl border border-orange-100 bg-white p-3 shadow-sm dark:border-orange-900 dark:bg-card"><img src={p.image_url||""} alt={p.title} className="size-16 rounded-xl bg-orange-50 object-cover"/><div className="min-w-0 flex-1"><p className="truncate font-medium">{p.title}</p><p className="text-sm text-muted-foreground">{p.category} · {p.state} · {money(p.price_kobo)} · {p.is_available?"Available":"Sold out"}{p.stock_quantity!==null? ` · ${p.stock_quantity} left`:""}</p></div><button onClick={()=>startProduct(p)} aria-label="Edit product" className="rounded-lg border p-2"><Pencil className="size-4"/></button><button onClick={()=>deleteProduct(p)} aria-label="Delete product" className="rounded-lg border p-2 text-destructive"><Trash2 className="size-4"/></button></div>)}
+        {products.length===0?<p className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">Your product catalogue is empty.</p>:products.map(p=><div key={p.id} className="flex items-center gap-3 rounded-xl border border-orange-100 bg-white p-3 shadow-sm dark:border-orange-900 dark:bg-card"><img src={p.image_url||""} alt={p.title} className="size-16 rounded-xl bg-orange-50 object-cover"/><div className="min-w-0 flex-1"><p className="truncate font-medium">{p.title}</p><p className="text-sm text-muted-foreground">{p.category} · {p.state} · {money(p.price_kobo)} · {p.is_available?"Available":"Sold out"}{p.stock_quantity!==null? ` · ${p.stock_quantity} left`:""}</p><div className="mt-2 flex flex-wrap items-center gap-2"><button type="button" onClick={()=>shareProduct(p)} className="inline-flex items-center gap-1 rounded-lg border border-orange-200 bg-orange-50 px-2 py-1 text-xs font-semibold text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-300"><Copy className="size-3.5"/>Copy product link</button><a href={productLink(p)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs"><ExternalLink className="size-3.5"/>Preview</a></div></div><button onClick={()=>startProduct(p)} aria-label="Edit product" className="rounded-lg border p-2"><Pencil className="size-4"/></button><button onClick={()=>deleteProduct(p)} aria-label="Delete product" className="rounded-lg border p-2 text-destructive"><Trash2 className="size-4"/></button></div>)}
       </section>
     </div>}
 
