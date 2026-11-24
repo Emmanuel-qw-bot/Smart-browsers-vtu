@@ -84,6 +84,10 @@ function Welcome() {
 type PublicProductData={product:{id:string;title:string;description:string;category:string;price_kobo:number;image_url:string|null;is_available:boolean;state:string;stock_quantity:number|null};store:{store_name:string;slug:string;tagline:string;whatsapp_phone:string;pickup_delivery_note:string}};
 function PublicProductPage({productId}:{productId:string}){
  const [data,setData]=useState<PublicProductData|null>(null);const [loading,setLoading]=useState(true);const [error,setError]=useState("");
+ const [orderOpen,setOrderOpen]=useState(false);
+ const [orderForm,setOrderForm]=useState({name:"",phone:"",location:"",quantity:1,note:""});
+ const [orderBusy,setOrderBusy]=useState(false);
+ const [orderSuccess,setOrderSuccess]=useState<{number:string,total:number}|null>(null);
  useEffect(()=>{let active=true;supabase.rpc("get_vendor_product",{_product_id:productId}).then(({data,error})=>{if(!active)return;if(error||!data){setError("This product is unavailable or the link may be incorrect.");setLoading(false);return;}setData(data as unknown as PublicProductData);setLoading(false);});return()=>{active=false};},[productId]);
  const money=(k:number)=>"₦"+(k/100).toLocaleString("en-NG",{maximumFractionDigits:2});
  if(loading)return <main className="min-h-screen bg-background p-6 grid place-items-center"><Loader2 className="size-8 animate-spin text-primary"/></main>;
