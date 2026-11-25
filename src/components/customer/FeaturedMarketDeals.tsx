@@ -3,24 +3,123 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Flame, ArrowRight, Store, Tag, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-type Featured={id:string;title:string;category:string;state:string;price_kobo:number;image_url:string|null;featured_label:string;store_name:string;store_slug:string};
-type Campaign={campaign_id:string;campaign_title:string;campaign_type:string;discount_percent:number|null;promotional_price_kobo:number|null;ends_at:string;product_id:string;product_title:string;category:string;state:string;original_price_kobo:number;image_url:string|null;store_name:string;store_slug:string};
-const money=(k:number)=>"₦"+(k/100).toLocaleString("en-NG",{maximumFractionDigits:2});
-export function FeaturedMarketDeals(){
- const featured=useQuery({queryKey:["featured-market-deals"],queryFn:async()=>{const {data,error}=await supabase.rpc("get_featured_market_deals");if(error)throw error;return (data??[]) as unknown as Featured[];},staleTime:5*60*1000});
- const campaigns=useQuery({queryKey:["active-market-campaigns"],queryFn:async()=>{const {data,error}=await supabase.rpc("get_active_market_campaigns");if(error)throw error;return (data??[]) as unknown as Campaign[];},staleTime:60000});
- const items=[...(featured.data??[]).map(d=>({key:"f"+d.id,id:d.id,title:d.title,price:d.price_kobo,image:d.image_url,store:d.store_name,category:d.category,state:d.state,label:d.featured_label||"Featured",kind:"featured" as const})),...(campaigns.data??[]).filter(c=>new Date(c.ends_at)>new Date()).map(c=>({key:"c"+c.campaign_id,id:c.product_id,title:c.product_title,price:c.campaign_type==="percentage"?Math.round(c.original_price_kobo*(1-Number(c.discount_percent||0)/100)):Number(c.promotional_price_kobo||c.original_price_kobo),original:c.original_price_kobo,image:c.image_url,store:c.store_name,category:c.category,state:c.state,label:c.campaign_type==="percentage"?Number(c.discount_percent)+"% OFF":"Hot Deal",kind:"campaign" as const,ends:c.ends_at})))];
- const [index,setIndex]=useState(0);
- useEffect(()=>{if(items.length<2)return;const timer=window.setInterval(()=>setIndex(i=>(i+1)%items.length),5000);return()=>window.clearInterval(timer);},[items.length]);
- 
- if(featured.isLoading||campaigns.isLoading||items.length===0)return null;
- const activeIndex=index%items.length;
- const d=items[activeIndex];
- const move=(dir:number)=>setIndex(i=>((i%items.length)+dir+items.length)%items.length);
- return <section className="space-y-3"><div className="flex items-center justify-between gap-2"><div><div className="flex items-center gap-2"><Flame className="size-5 text-orange-500"/><h2 className="font-display text-lg font-semibold">Featured & Hot Deals</h2></div><p className="text-xs text-muted-foreground">Featured products and limited-time offers</p></div><Link to="/app/$section" params={{section:"mini-shop"}} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary">Market <ArrowRight className="size-3.5"/></Link></div>
- <a key={d.key} href={"/?product="+encodeURIComponent(d.id)} className="group flex overflow-hidden rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 via-card to-amber-50 shadow-soft dark:border-orange-900 dark:from-orange-950/30 dark:to-amber-950/20">
- <div className="relative w-[42%] min-w-[130px] aspect-square bg-muted">{d.image?<img src={d.image} alt={d.title} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105"/>:<div className="grid h-full place-items-center"><Tag className="size-10 text-muted-foreground"/></div>}<span className="absolute left-2 top-2 rounded-full bg-orange-600 px-2 py-1 text-[10px] font-bold text-white shadow">{d.label}</span></div>
- <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 p-3"><p className="line-clamp-2 text-sm font-bold">{d.title}</p><div className="flex flex-wrap items-baseline gap-2"><p className="text-lg font-black text-orange-700 dark:text-orange-300">{money(d.price)}</p>{d.original&&<span className="text-xs text-muted-foreground line-through">{money(d.original)}</span>}</div><p className="flex items-center gap-1 truncate text-xs text-muted-foreground"><Store className="size-3.5 shrink-0"/>{d.store}</p><p className="line-clamp-1 text-[10px] text-muted-foreground">{d.category} · {d.state}</p>{d.ends&&<p className="flex items-center gap-1 text-[10px] text-orange-600"><Clock className="size-3"/>Ends {new Date(d.ends).toLocaleDateString("en-NG")}</p>}<span className="mt-1 inline-flex items-center justify-center gap-1 rounded-xl bg-orange-600 px-3 py-2 text-xs font-semibold text-white">{d.kind==="campaign"?"Shop Deal":"View Deal"} <ArrowRight className="size-3.5"/></span></div></a>
- <div className="flex items-center justify-between"><div className="flex items-center gap-1">{items.map((item,i)=><button key={item.key} aria-label={"Show deal "+(i+1)} onClick={()=>setIndex(i)} className={"h-1.5 rounded-full transition-all "+(i===activeIndex?"w-5 bg-orange-500":"w-1.5 bg-muted-foreground/30")}/>)}</div><div className="flex gap-1"><button aria-label="Previous deal" onClick={()=>move(-1)} className="grid size-8 place-items-center rounded-full border bg-card"><ChevronLeft className="size-4"/></button><button aria-label="Next deal" onClick={()=>move(1)} className="grid size-8 place-items-center rounded-full border bg-card"><ChevronRight className="size-4"/></button></div></div>
- </section>;
+
+type Featured = { id: string; title: string; category: string; state: string; price_kobo: number; image_url: string | null; featured_label: string; store_name: string; store_slug: string };
+type Campaign = { campaign_id: string; campaign_title: string; campaign_type: string; discount_percent: number | null; promotional_price_kobo: number | null; ends_at: string; product_id: string; product_title: string; category: string; state: string; original_price_kobo: number; image_url: string | null; store_name: string; store_slug: string };
+type Deal = { key: string; id: string; title: string; price: number; image: string | null; store: string; category: string; state: string; label: string; kind: "featured" | "campaign"; original?: number; ends?: string };
+const money = (k: number) => "₦" + (k / 100).toLocaleString("en-NG", { maximumFractionDigits: 2 });
+
+export function FeaturedMarketDeals() {
+  const featured = useQuery({
+    queryKey: ["featured-market-deals"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_featured_market_deals");
+      if (error) throw error;
+      return (data ?? []) as unknown as Featured[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const campaigns = useQuery({
+    queryKey: ["active-market-campaigns"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_active_market_campaigns");
+      if (error) throw error;
+      return (data ?? []) as unknown as Campaign[];
+    },
+    staleTime: 60_000,
+  });
+
+  const featuredItems: Deal[] = (featured.data ?? []).map((d) => ({
+    key: "f" + d.id,
+    id: d.id,
+    title: d.title,
+    price: d.price_kobo,
+    image: d.image_url,
+    store: d.store_name,
+    category: d.category,
+    state: d.state,
+    label: d.featured_label || "Featured",
+    kind: "featured",
+  }));
+
+  const campaignItems: Deal[] = (campaigns.data ?? [])
+    .filter((c) => new Date(c.ends_at).getTime() > Date.now())
+    .map((c) => ({
+      key: "c" + c.campaign_id,
+      id: c.product_id,
+      title: c.product_title,
+      price: c.campaign_type === "percentage"
+        ? Math.round(c.original_price_kobo * (1 - Number(c.discount_percent || 0) / 100))
+        : Number(c.promotional_price_kobo || c.original_price_kobo),
+      original: c.original_price_kobo,
+      image: c.image_url,
+      store: c.store_name,
+      category: c.category,
+      state: c.state,
+      label: c.campaign_type === "percentage" ? Number(c.discount_percent) + "% OFF" : "Hot Deal",
+      kind: "campaign",
+      ends: c.ends_at,
+    }));
+
+  const items: Deal[] = [...featuredItems, ...campaignItems];
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (items.length < 2) return;
+    const timer = window.setInterval(() => setIndex((i) => (i + 1) % items.length), 5000);
+    return () => window.clearInterval(timer);
+  }, [items.length]);
+
+  if (featured.isLoading || campaigns.isLoading || items.length === 0) return null;
+
+  const activeIndex = index % items.length;
+  const deal = items[activeIndex];
+  const move = (direction: number) => setIndex((i) => ((i % items.length) + direction + items.length) % items.length);
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <Flame className="size-5 text-orange-500" />
+            <h2 className="font-display text-lg font-semibold">Featured & Hot Deals</h2>
+          </div>
+          <p className="text-xs text-muted-foreground">Featured products and limited-time offers</p>
+        </div>
+        <Link to="/app/$section" params={{ section: "mini-shop" }} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary">
+          Market <ArrowRight className="size-3.5" />
+        </Link>
+      </div>
+
+      <a key={deal.key} href={"/?product=" + encodeURIComponent(deal.id)} className="group flex overflow-hidden rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 via-card to-amber-50 shadow-soft dark:border-orange-900 dark:from-orange-950/30 dark:to-amber-950/20">
+        <div className="relative aspect-square w-[42%] min-w-[130px] bg-muted">
+          {deal.image ? <img src={deal.image} alt={deal.title} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : <div className="grid h-full place-items-center"><Tag className="size-10 text-muted-foreground" /></div>}
+          <span className="absolute left-2 top-2 rounded-full bg-orange-600 px-2 py-1 text-[10px] font-bold text-white shadow">{deal.label}</span>
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 p-3">
+          <p className="line-clamp-2 text-sm font-bold">{deal.title}</p>
+          <div className="flex flex-wrap items-baseline gap-2">
+            <p className="text-lg font-black text-orange-700 dark:text-orange-300">{money(deal.price)}</p>
+            {deal.original !== undefined && <span className="text-xs text-muted-foreground line-through">{money(deal.original)}</span>}
+          </div>
+          <p className="flex items-center gap-1 truncate text-xs text-muted-foreground"><Store className="size-3.5 shrink-0" />{deal.store}</p>
+          <p className="line-clamp-1 text-[10px] text-muted-foreground">{deal.category} · {deal.state}</p>
+          {deal.ends && <p className="flex items-center gap-1 text-[10px] text-orange-600"><Clock className="size-3" />Ends {new Date(deal.ends).toLocaleDateString("en-NG")}</p>}
+          <span className="mt-1 inline-flex items-center justify-center gap-1 rounded-xl bg-orange-600 px-3 py-2 text-xs font-semibold text-white">
+            {deal.kind === "campaign" ? "Shop Deal" : "View Deal"} <ArrowRight className="size-3.5" />
+          </span>
+        </div>
+      </a>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          {items.map((item, i) => <button key={item.key} aria-label={"Show deal " + (i + 1)} onClick={() => setIndex(i)} className={"h-1.5 rounded-full transition-all " + (i === activeIndex ? "w-5 bg-orange-500" : "w-1.5 bg-muted-foreground/30")} />)}
+        </div>
+        <div className="flex gap-1">
+          <button aria-label="Previous deal" onClick={() => move(-1)} className="grid size-8 place-items-center rounded-full border bg-card"><ChevronLeft className="size-4" /></button>
+          <button aria-label="Next deal" onClick={() => move(1)} className="grid size-8 place-items-center rounded-full border bg-card"><ChevronRight className="size-4" /></button>
+        </div>
+      </div>
+    </section>
+  );
 }
