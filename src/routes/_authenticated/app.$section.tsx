@@ -18,6 +18,7 @@ import { CustomerReferrals } from "@/components/customer/CustomerReferrals";
 import { CustomerSquadRecharge } from "@/components/customer/CustomerSquadRecharge";
 import { CustomerMiniShop } from "@/components/customer/CustomerMiniShop";
 import { FeaturedMarketDeals } from "@/components/customer/FeaturedMarketDeals";
+import { ActiveMarketCampaigns } from "@/components/customer/ActiveMarketCampaigns";
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: async ({ params, context }) => {
     const item = findNav(customerNav, params.section);
@@ -112,6 +113,7 @@ function SectionPage() {
       <BalanceCard />
       <CustomerAnnouncements />
       <FeaturedMarketDeals />
+      <ActiveMarketCampaigns />
       <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
         {quick.map((q) => {
           const styles: Record<string, { tile: string; icon: string }> = {
