@@ -10,7 +10,8 @@ import { CustomerProducts } from "@/components/customer/CustomerProducts";
 import { CustomerDataPlans } from "@/components/customer/CustomerDataPlans";
 import { CustomerSupport, customerSupportQuery } from "@/components/customer/CustomerSupport";
 import { CustomerWeekendRush, customerWeekendRushQuery } from "@/components/customer/CustomerWeekendRush";
-import { CustomerAnnouncements, customerAnnouncementsQuery } from "@/components/customer/CustomerAnnouncements";
+import { customerAnnouncementsQuery } from "@/components/customer/CustomerAnnouncements";
+import { CustomerAnnouncementPopup } from "@/components/customer/CustomerAnnouncementPopup";
 import { CustomerBadges } from "@/components/customer/CustomerBadges";
 import { DashboardWelcome } from "@/components/customer/DashboardWelcome";
 import { CustomerAirtimeCash } from "@/components/customer/CustomerAirtimeCash";
@@ -18,7 +19,7 @@ import { CustomerReferrals } from "@/components/customer/CustomerReferrals";
 import { CustomerSquadRecharge } from "@/components/customer/CustomerSquadRecharge";
 import { CustomerMiniShop } from "@/components/customer/CustomerMiniShop";
 import { FeaturedMarketDeals } from "@/components/customer/FeaturedMarketDeals";
-import { ActiveMarketCampaigns } from "@/components/customer/ActiveMarketCampaigns";
+
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: async ({ params, context }) => {
     const item = findNav(customerNav, params.section);
@@ -111,9 +112,9 @@ function SectionPage() {
     <div className="mx-auto w-full max-w-5xl space-y-5 animate-rise">
       <DashboardWelcome />
       <BalanceCard />
-      <CustomerAnnouncements />
+      
       <FeaturedMarketDeals />
-      <ActiveMarketCampaigns />
+      <CustomerAnnouncementPopup />
       <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
         {quick.map((q) => {
           const styles: Record<string, { tile: string; icon: string }> = {
