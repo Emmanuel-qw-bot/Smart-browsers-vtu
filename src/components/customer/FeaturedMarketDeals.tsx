@@ -14,7 +14,8 @@ export function FeaturedMarketDeals(){
  useEffect(()=>{if(items.length<2)return;const timer=window.setInterval(()=>setIndex(i=>(i+1)%items.length),5000);return()=>window.clearInterval(timer);},[items.length]);
  
  if(featured.isLoading||campaigns.isLoading||items.length===0)return null;
- const activeIndex=index%items.length;\n const d=items[activeIndex];
+ const activeIndex=index%items.length;
+ const d=items[activeIndex];
  const move=(dir:number)=>setIndex(i=>((i%items.length)+dir+items.length)%items.length);
  return <section className="space-y-3"><div className="flex items-center justify-between gap-2"><div><div className="flex items-center gap-2"><Flame className="size-5 text-orange-500"/><h2 className="font-display text-lg font-semibold">Featured & Hot Deals</h2></div><p className="text-xs text-muted-foreground">Featured products and limited-time offers</p></div><Link to="/app/$section" params={{section:"mini-shop"}} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary">Market <ArrowRight className="size-3.5"/></Link></div>
  <a key={d.key} href={"/?product="+encodeURIComponent(d.id)} className="group flex overflow-hidden rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 via-card to-amber-50 shadow-soft dark:border-orange-900 dark:from-orange-950/30 dark:to-amber-950/20">
