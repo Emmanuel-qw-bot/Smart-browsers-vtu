@@ -24,90 +24,70 @@ export const getMyReferralDashboard = createServerFn({ method: "GET" })
 export const getReferralRewardProducts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
-    const { data: settings } = await db.from("referral_reward_settings").select("reward_data_mb").eq("id",true).single();
-    const targetGb = Math.max(1,Math.floor((settings?.reward_data_mb??5000)/1000));
-    const { data, error } = await db.from("vtu_products")
-      .select("id,network_name,plan_name,service,active,archived,data_plan_id,network_id,vtu_providers!inner(adapter,enabled,data_enabled)")
-      .eq("service","data").eq("active",true).eq("archived",false);
-    if (error) throw new Error("Could not load reward plans.");
-    return (data ?? []).filter((p:any) => new RegExp("(^|\\D)"+targetGb+"\\s*GB(\\D|$)","i").test(p.plan_name) &&
-      p.data_plan_id && (p.vtu_providers as any)?.adapter === "arewabundle" &&
-      (p.vtu_providers as any)?.enabled && (p.vtu_providers as any)?.data_enabled);
+    const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
+    const {data,error}=await supabaseAdmin.from("referral_reward_settings").select("mtn_network_id,mtn_data_plan_id,airtel_network_id,airtel_data_plan_id,glo_network_id,glo_data_plan_id").eq("id",true).single();
+    if(error||!data)throw new Error("Could not load configured reward networks.");
+    return [
+      {network:"MTN",configured:!!data.mtn_network_id&&!!data.mtn_data_plan_id},
+      {network:"Airtel",configured:!!data.airtel_network_id&&!!data.airtel_data_plan_id},
+      {network:"Glo",configured:!!data.glo_network_id&&!!data.glo_data_plan_id},
+    ];
   });
 
 export const claimReferralDataReward = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({
-    network: z.enum(["MTN","Airtel","Glo","9mobile"]).optional(),
-    phone: z.string().regex(/^0[789][01]\d{8}$/).optional(),
-    productId: z.string().uuid().optional(),
-    retryClaimId: z.string().uuid().optional(),
+  .inputValidator((input)=>z.object({
+    network:z.enum(["MTN","Airtel","Glo"]).optional(),
+    phone:z.string().regex(/^0[789][01]\\d{8}$/).optional(),
+    retryClaimId:z.string().uuid().optional(),
   }).parse(input))
-  .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
-    const userDb = context.supabase as any;
-    const { data: claimId, error: reserveError } = data.retryClaimId
-      ? await userDb.rpc("retry_referral_reward_claim", { _claim_id: data.retryClaimId })
-      : await userDb.rpc("reserve_referral_reward_claim", { _network: data.network, _phone: data.phone, _product_id: data.productId });
-    if (reserveError || !claimId) throw new Error(reserveError?.message ?? "Could not reserve reward claim.");
-
-    if(!data.retryClaimId && (!data.network || !data.phone || !data.productId)) throw new Error("Choose network, phone number and reward bundle.");
-    const claim = String(claimId);
-    const { data: claimRow, error: claimRowError } = await db.from("referral_reward_claims").select("network,recipient_phone,product_id,referrer_user_id").eq("id",claim).single();
-    if(claimRowError || !claimRow || claimRow.referrer_user_id!==context.userId) throw new Error("Could not verify reward claim.");
-    const network=claimRow.network as string;
-    const phone=claimRow.recipient_phone as string;
-    const productId=claimRow.product_id as string;
-    await db.from("referral_reward_claims").update({ status: "processing" }).eq("id", claim);
-    const { data: product, error: productError } = await supabaseAdmin.from("vtu_products")
-      .select("id,network_id,network_name,plan_name,data_plan_id,vtu_providers!inner(adapter,enabled,data_enabled)")
-      .eq("id",productId).single();
-    const provider = product?.vtu_providers as any;
-    if (productError || !product || !provider || provider.adapter !== "arewabundle" || !provider.enabled || !provider.data_enabled || !product.data_plan_id) {
-      await db.from("referral_reward_claims").update({ status:"failed", failure_reason:"Reward plan/provider is unavailable" }).eq("id",claim);
-      throw new Error("Reward delivery is unavailable for this plan. Your unlocked reward remains available for support.");
+  .handler(async({data,context})=>{
+    const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
+    const db=supabaseAdmin as any;const userDb=context.supabase as any;
+    const {data:claimId,error:reserveError}=data.retryClaimId
+      ? await userDb.rpc("retry_referral_reward_claim",{_claim_id:data.retryClaimId})
+      : await userDb.rpc("reserve_referral_reward_claim",{_network:data.network,_phone:data.phone,_product_id:null});
+    if(reserveError||!claimId)throw new Error(reserveError?.message??"Could not reserve your referral reward.");
+    const claim=String(claimId);
+    const {data:row,error:rowError}=await db.from("referral_reward_claims").select("referrer_user_id,network,recipient_phone,network_id,data_plan_id,status").eq("id",claim).single();
+    if(rowError||!row||row.referrer_user_id!==context.userId)throw new Error("Could not verify the reward claim.");
+    if(!row.network_id||!row.data_plan_id)throw new Error("Reward network mapping is missing. Contact support.");
+    // Compare-and-set prevents two requests from sending the same reserved claim.
+    const {data:reserved,error:casError}=await db.from("referral_reward_claims").update({status:"processing",provider_reference:"REF-"+claim,updated_at:new Date().toISOString()}).eq("id",claim).eq("status","reserved").select("id").maybeSingle();
+    if(casError||!reserved)throw new Error("This reward claim is already processing or awaiting reconciliation. Do not submit it again.");
+    const reference="REF-"+claim;
+    const gatewayKey=process.env["LOVABLE_API_KEY"],connectionKey=process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
+    if(!gatewayKey||!connectionKey){
+      await db.from("referral_reward_claims").update({status:"failed",failure_reason:"Provider credentials unavailable before delivery"}).eq("id",claim);
+      throw new Error("Provider connection unavailable. The reward remains available.");
     }
-    const gatewayKey = process.env["LOVABLE_API_KEY"];
-    const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
-    if (!gatewayKey || !connectionKey) {
-      await db.from("referral_reward_claims").update({ status:"failed", failure_reason:"Provider credentials unavailable" }).eq("id",claim);
-      throw new Error("Provider connection unavailable. Your reward was not consumed.");
-    }
-    const reference = "REF-" + claim;
-    try {
-      const authResponse = await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user", {
-        method:"POST", redirect:"error", signal:AbortSignal.timeout(15000),
-        headers:{Authorization:"Bearer "+gatewayKey,"X-Connection-Api-Key":connectionKey,Accept:"application/json"},
-      });
-      const authBody = await authResponse.json().catch(()=>null) as any;
-      if (!authResponse.ok || !authBody?.AccessToken) {
-        await db.from("referral_reward_claims").update({status:"failed",failure_reason:"Provider authentication failed"}).eq("id",claim);
-        throw new Error("Provider authentication failed. Your reward remains available.");
+    let sent=false;
+    try{
+      const auth=await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user",{method:"POST",redirect:"error",signal:AbortSignal.timeout(15000),headers:{Authorization:"Bearer "+gatewayKey,"X-Connection-Api-Key":connectionKey,Accept:"application/json"}});
+      const authBody=await auth.json().catch(()=>null) as any;
+      if(!auth.ok||!authBody?.AccessToken){
+        await db.from("referral_reward_claims").update({status:"failed",failure_reason:"Provider authentication failed before data request"}).eq("id",claim);
+        throw new Error("Provider authentication failed. The reward has not been sent.");
       }
-      const response=await fetch("https://api.arewabundle.com.ng/api/data",{
-        method:"POST",redirect:"error",signal:AbortSignal.timeout(25000),
-        headers:{Authorization:"Token "+authBody.AccessToken,"Content-Type":"application/json",Accept:"application/json"},
-        body:JSON.stringify({network:product.network_id,phone,data_plan:product.data_plan_id,bypass:false,"request-id":reference}),
-      });
+      sent=true;
+      const response=await fetch("https://api.arewabundle.com.ng/api/data",{method:"POST",redirect:"error",signal:AbortSignal.timeout(25000),headers:{Authorization:"Token "+authBody.AccessToken,"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({network:/^\\d+$/.test(row.network_id)?Number(row.network_id):row.network_id,phone:row.recipient_phone,data_plan:/^\\d+$/.test(row.data_plan_id)?Number(row.data_plan_id):row.data_plan_id,bypass:false,"request-id":reference})});
       const body=await response.json().catch(()=>null) as any;
-      if(response.ok && body?.status==="success"){
-        await db.from("referral_reward_claims").update({status:"delivered",provider_reference:reference,delivered_at:new Date().toISOString(),failure_reason:null}).eq("id",claim);
-        await db.from("referral_audit").insert({actor_id:context.userId,event:"reward_data_delivered",subject_user_id:context.userId,details:{claim_id:claim,network,phone_last4:phone.slice(-4),provider_reference:reference}});
-        return {success:true,status:"delivered",claimId:claim,message:"Your data reward delivery request succeeded. Confirm receipt on the recipient phone."};
+      if(response.ok&&body?.status==="success"){
+        await db.from("referral_reward_claims").update({status:"delivered",provider_reference:reference,delivered_at:new Date().toISOString(),failure_reason:null,updated_at:new Date().toISOString()}).eq("id",claim);
+        await db.from("referral_audit").insert({actor_id:context.userId,event:"reward_data_delivered",subject_user_id:context.userId,details:{claim_id:claim,network:row.network,phone_last4:row.recipient_phone.slice(-4),provider_reference:reference}});
+        return {success:true,status:"delivered",claimId:claim,message:"Congratulations! Your referral data reward was successfully sent. Check the recipient phone."};
       }
       if(body?.status==="fail"){
-        await db.from("referral_reward_claims").update({status:"failed",failure_reason:String(body.message??"Provider reported failure").slice(0,500),provider_reference:reference}).eq("id",claim);
-        return {success:false,status:"failed",claimId:claim,message:"Provider reported failure. Your reward remains available for support/retry."};
+        await db.from("referral_reward_claims").update({status:"failed",failure_reason:String(body.message??"Provider confirmed failure").slice(0,500),updated_at:new Date().toISOString()}).eq("id",claim);
+        return {success:false,status:"failed",claimId:claim,message:"The provider confirmed delivery failed. Your reward claim is retained; contact support before retrying."};
       }
-      await db.from("referral_reward_claims").update({status:"pending",failure_reason:"Provider response ambiguous; do not retry automatically",provider_reference:reference}).eq("id",claim);
-      return {success:false,status:"pending",claimId:claim,message:"Delivery status is uncertain. Please do not claim again; contact support with the claim reference."};
-    } catch(e) {
-      const msg=e instanceof Error?e.message:"Provider response uncertain";
-      if(!msg.includes("Provider authentication failed")) await db.from("referral_reward_claims").update({status:"pending",failure_reason:"Network/provider response uncertain",provider_reference:reference}).eq("id",claim);
-      throw new Error(msg.includes("reward remains available")?msg:"Provider response is uncertain. Do not retry yet; contact support with claim "+claim);
+      await db.from("referral_reward_claims").update({status:"pending",failure_reason:"Provider outcome ambiguous. Do not retry until reconciled.",updated_at:new Date().toISOString()}).eq("id",claim);
+      return {success:false,status:"pending",claimId:claim,message:"Delivery status is uncertain. Do not retry. Contact support with claim reference "+claim};
+    }catch(error){
+      const msg=error instanceof Error?error.message:"Provider error";
+      if(!sent)await db.from("referral_reward_claims").update({status:"failed",failure_reason:"Request not sent: "+msg.slice(0,300),updated_at:new Date().toISOString()}).eq("id",claim);
+      else await db.from("referral_reward_claims").update({status:"pending",failure_reason:"Provider response uncertain. Do not retry.",updated_at:new Date().toISOString()}).eq("id",claim);
+      throw new Error(sent?"Provider outcome uncertain. Do not retry. Contact support with claim reference "+claim:msg);
     }
   });
 
