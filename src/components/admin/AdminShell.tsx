@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link, useParams } from "@tanstack/react-router";
@@ -15,6 +15,27 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const countsQuery=useQuery({queryKey:["admin","navigation-counts"],queryFn:()=>countsFn(),refetchInterval:60000});
   const counts:Record<string,number>=countsQuery.data??{};
   const badges:Record<string,number>={customers:counts.customers??0,transactions:counts.transactions??0,"referral-settings":counts.referralClaims??0,"weekend-giveaways":counts.weekendClaims??0,"airtime-cash":counts.airtimeCash??0,"vendor-subscriptions":counts.vendorSubscriptions??0};
+  const [seenCounts,setSeenCounts]=useState<Record<string,number>>({});
+  useEffect(()=>{
+    try {
+      const saved=localStorage.getItem("smart-browsers-admin-seen-counts");
+      if(saved) setSeenCounts(JSON.parse(saved));
+    } catch {}
+  },[]);
+  const clearSectionBadge=(slug:string)=>{
+    const value=badges[slug]??0;
+    setSeenCounts(prev=>{
+      const next={...prev,[slug]:value};
+      try { localStorage.setItem("smart-browsers-admin-seen-counts",JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+  useEffect(()=>{
+    if(!countsQuery.data || !section) return;
+    if(Object.prototype.hasOwnProperty.call(badges,section)) clearSectionBadge(section);
+  },[section,countsQuery.data]);
+  const visibleBadge=(slug:string)=>Math.max(0,(badges[slug]??0)-(seenCounts[slug]??0));
+
 
   const Sidebar = () => (
     <div className="flex h-full flex-col bg-sidebar p-4 text-sidebar-foreground">
@@ -24,10 +45,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto">
         {adminNav.map((n) => (
-          <Link key={n.slug} to="/admin/$section" params={{ section: n.slug }} onClick={() => setOpen(false)}
+          <Link key={n.slug} to="/admin/$section" params={{ section: n.slug }} onClick={() => { clearSectionBadge(n.slug); setOpen(false); }}
             className={cn("flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent",
               section === n.slug && "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary")}>
-            <n.icon className="size-4 shrink-0" /> <span className="min-w-0 flex-1 truncate">{n.label}</span>{(badges[n.slug]??0)>0&&<span className="inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold leading-none text-destructive-foreground">{(badges[n.slug]??0)>99?"99+":badges[n.slug]}</span>}
+            <n.icon className="size-4 shrink-0" /> <span className="min-w-0 flex-1 truncate">{n.label}</span>{visibleBadge(n.slug)>0&&<span className="inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold leading-none text-destructive-foreground">{visibleBadge(n.slug)>99?"99+":visibleBadge(n.slug)}</span>}
           </Link>
         ))}
       </nav>
