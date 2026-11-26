@@ -20,6 +20,7 @@ type Recipient = {
   phone: string;
   productId: string;
   amount: string;
+  requestId: string;
 };
 type Result = { id: number; status: "success" | "refunded" | "pending" | "not_sent"; message: string };
 
@@ -36,7 +37,7 @@ export function CustomerSquadRecharge() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [rows, setRows] = useState<Recipient[]>([{ id: 1, service: "data", network: "MTN", phone: "", productId: "", amount: "100" }]);
+  const [rows, setRows] = useState<Recipient[]>([{ id: 1, service: "data", network: "MTN", phone: "", productId: "", amount: "100", requestId: crypto.randomUUID() }]);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<Result[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -70,7 +71,7 @@ export function CustomerSquadRecharge() {
   function updateRow(id: number, patch: Partial<Recipient>) {
     setRows((prev) => prev.map((r) => {
       if (r.id !== id) return r;
-      const next = { ...r, ...patch };
+      const next = { ...r, ...patch, requestId: crypto.randomUUID() };
       if (patch.network && patch.network !== r.network && next.service === "data") {
         next.productId = dataProducts.find((p) => p.network_name.toLowerCase() === patch.network!.toLowerCase())?.id ?? "";
       }
@@ -81,7 +82,7 @@ export function CustomerSquadRecharge() {
   function addRecipient() {
     if (rows.length >= 10) return;
     const id = Math.max(...rows.map((r) => r.id)) + 1;
-    setRows((prev) => [...prev, { id, service: "data", network: "MTN", phone: "", productId: dataProducts.find((p) => p.network_name.toLowerCase() === "mtn")?.id ?? "", amount: "100" }]);
+    setRows((prev) => [...prev, { id, service: "data", network: "MTN", phone: "", productId: dataProducts.find((p) => p.network_name.toLowerCase() === "mtn")?.id ?? "", amount: "100", requestId: crypto.randomUUID() }]);
   }
   function removeRecipient(id: number) { if (rows.length > 1) setRows((prev) => prev.filter((r) => r.id !== id)); }
 
@@ -108,11 +109,11 @@ export function CustomerSquadRecharge() {
       try {
         if (r.service === "data") {
           const plan = dataProducts.find((p) => p.id === r.productId)!;
-          const res = await purchaseData({ data: { productId: plan.id, phone: r.phone.trim() } });
+          const res = await purchaseData({ data: { productId: plan.id, phone: r.phone.trim(), requestId: r.requestId } });
           finalResults.push({ id: r.id, status: "success", message: res.message });
         } else {
           const networkId = NETWORKS.find((n) => n.name.toLowerCase() === r.network.toLowerCase())?.id ?? 0;
-          const res = await purchaseAirtime({ data: { networkId, networkName: r.network, phone: r.phone.trim(), amountNaira: Number(r.amount) } });
+          const res = await purchaseAirtime({ data: { networkId, networkName: r.network, phone: r.phone.trim(), amountNaira: Number(r.amount), requestId: r.requestId } });
           finalResults.push({ id: r.id, status: "success", message: res.message });
         }
       } catch (error) {
