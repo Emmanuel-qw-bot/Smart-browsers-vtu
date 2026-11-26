@@ -173,3 +173,68 @@ grant execute on function public.vendor_product_public_allowed(uuid,uuid,uuid,ti
 drop policy if exists "Public view available products within plan limits" on public.vendor_products;
 create policy "Public view available products within plan limits" on public.vendor_products
 for select using (is_available=true and public.vendor_product_public_allowed(id,owner_id,store_id,created_at));
+
+-- Admin subscription grants and revocations. All actions are permission checked and recorded.
+create table if not exists public.vendor_subscription_admin_log (
+ id uuid primary key default gen_random_uuid(),
+ admin_id uuid not null references public.profiles(id),
+ vendor_id uuid not null references public.profiles(id),
+ action text not null check(action in ('grant','revoke','expire')),
+ plan_key text,
+ subscription_id uuid,
+ duration_days integer,
+ reason text not null default '',
+ created_at timestamptz not null default now()
+);
+alter table public.vendor_subscription_admin_log enable row level security;
+grant select on public.vendor_subscription_admin_log to authenticated;
+drop policy if exists "Admins read subscription audit" on public.vendor_subscription_admin_log;
+create policy "Admins read subscription audit" on public.vendor_subscription_admin_log for select to authenticated using(public.has_role(auth.uid(),'admin'));
+grant all on public.vendor_subscription_admin_log to service_role;
+
+create or replace function public.admin_grant_vendor_subscription(_vendor_id uuid,_plan_key text,_duration_days integer,_reason text default '')
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare sid uuid; p public.vendor_subscription_plans%rowtype;
+begin
+ if auth.uid() is null or not public.has_role(auth.uid(),'admin') then raise exception 'Admin access required.'; end if;
+ if _plan_key not in ('pro','enterprise') then raise exception 'Choose Pro or Enterprise.'; end if;
+ if _duration_days<1 or _duration_days>365 then raise exception 'Duration must be 1 to 365 days.'; end if;
+ select * into p from vendor_subscription_plans where plan_key=_plan_key;
+ if not found then raise exception 'Plan not found.'; end if;
+ update vendor_subscriptions set status='expired',updated_at=now() where owner_id=_vendor_id and status in ('active','grace');
+ insert into vendor_subscriptions(owner_id,plan_key,status,billing_period,started_at,expires_at)
+ values(_vendor_id,_plan_key,'active','admin_grant',now(),now()+make_interval(days=>_duration_days)) returning id into sid;
+ insert into vendor_subscription_admin_log(admin_id,vendor_id,action,plan_key,subscription_id,duration_days,reason)
+ values(auth.uid(),_vendor_id,'grant',_plan_key,sid,_duration_days,left(coalesce(_reason,''),300));
+ return jsonb_build_object('subscription_id',sid,'vendor_id',_vendor_id,'plan',_plan_key,'expires_at',now()+make_interval(days=>_duration_days));
+end $$;
+revoke execute on function public.admin_grant_vendor_subscription(uuid,text,integer,text) from public,anon;
+grant execute on function public.admin_grant_vendor_subscription(uuid,text,integer,text) to authenticated;
+
+create or replace function public.admin_revoke_vendor_subscription(_subscription_id uuid,_reason text default '')
+returns boolean language plpgsql security definer set search_path=public as $$
+declare s vendor_subscriptions%rowtype;
+begin
+ if auth.uid() is null or not public.has_role(auth.uid(),'admin') then raise exception 'Admin access required.'; end if;
+ select * into s from vendor_subscriptions where id=_subscription_id for update;
+ if not found then raise exception 'Subscription not found.'; end if;
+ update vendor_subscriptions set status='cancelled',expires_at=now(),updated_at=now() where id=_subscription_id;
+ insert into vendor_subscription_admin_log(admin_id,vendor_id,action,plan_key,subscription_id,reason)
+ values(auth.uid(),s.owner_id,'revoke',s.plan_key,s.id,left(coalesce(_reason,''),300));
+ return true;
+end $$;
+revoke execute on function public.admin_revoke_vendor_subscription(uuid,text) from public,anon;
+grant execute on function public.admin_revoke_vendor_subscription(uuid,text) to authenticated;
+
+create or replace function public.admin_refresh_vendor_subscription_expiry()
+returns integer language plpgsql security definer set search_path=public as $$
+declare n integer;
+begin
+ if auth.uid() is null or not public.has_role(auth.uid(),'admin') then raise exception 'Admin access required.'; end if;
+ update vendor_subscriptions set status='expired',updated_at=now()
+ where status in ('active','grace') and expires_at is not null and expires_at<=now();
+ get diagnostics n=row_count;
+ return n;
+end $$;
+revoke execute on function public.admin_refresh_vendor_subscription_expiry() from public,anon;
+grant execute on function public.admin_refresh_vendor_subscription_expiry() to authenticated;
