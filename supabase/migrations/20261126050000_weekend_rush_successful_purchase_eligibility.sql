@@ -83,3 +83,21 @@ BEGIN
  INSERT INTO public.weekend_giveaway_claim_details(campaign_key,user_id,slot_id) VALUES(v_campaign,v_user,v_slot.id);
  RETURN jsonb_build_object('slot_number',v_slot.slot_number,'status','claimed','campaign_key',v_campaign,'successful_data_purchases',v_count);
 END $$;
+
+-- Opening notifications only go to customers with enough provider-confirmed successful data purchases.
+CREATE OR REPLACE FUNCTION public.notify_weekend_rush_open()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+ IF NEW.enabled AND (NOT OLD.enabled OR NEW.opens_at IS DISTINCT FROM OLD.opens_at)
+   AND (NEW.opens_at IS NULL OR NEW.opens_at<=now()) THEN
+  INSERT INTO public.user_notifications(user_id,notification_type,title,message,source_key,action_path)
+  SELECT p.id,'weekend_rush','Weekend Rush is open',
+    coalesce(NEW.announcement,'Weekend Rush applications are now open.'),
+    'open-'||coalesce(NEW.opens_at::text,'immediate'),'/app/weekend-rush'
+  FROM public.profiles p
+  WHERE (SELECT count(*) FROM public.vtu_purchase_attempts t
+    WHERE t.user_id=p.id AND t.service='data' AND t.status='successful')>=NEW.minimum_data_purchases
+  ON CONFLICT(user_id,notification_type,source_key) DO NOTHING;
+ END IF;
+ RETURN NEW;
+END $$;
