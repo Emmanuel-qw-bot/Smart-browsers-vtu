@@ -19,7 +19,7 @@ export const Route = createFileRoute("/signup")({
 
 function SignupPage() {
   const [form, setForm] = useState({
-    fullName: "", email: "", phone: "", password: "", confirmPassword: "",
+    fullName: "", username: "", email: "", phone: "", password: "", confirmPassword: "",
     source: "", sourceOther: "", inviteCode: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -95,13 +95,14 @@ function SignupPage() {
     setLoading(true);
     try {
       const phone = normalizeNigerianPhone(d.phone)!;
-      const { data: taken, error: cErr } = await supabase.rpc("registration_conflicts", { _email: d.email, _phone: phone });
+      const { data: taken, error: cErr } = await supabase.rpc("registration_conflicts", { _email: d.email, _phone: phone, _username: d.username });
       if (cErr) throw cErr;
-      const t = (taken ?? {}) as { email?: boolean; phone?: boolean };
-      if (t.email || t.phone) {
+      const t = (taken ?? {}) as { email?: boolean; phone?: boolean; username?: boolean };
+      if (t.email || t.phone || t.username) {
         setErrors({
           email: t.email ? "This email is already registered. Try logging in instead." : undefined,
           phone: t.phone ? "This phone number is already registered to another account." : undefined,
+          username: t.username ? "That username is already taken. Choose another." : undefined,
         });
         return;
       }
@@ -119,6 +120,7 @@ function SignupPage() {
           emailRedirectTo: `${window.location.origin}/app/dashboard`,
           data: {
             full_name: d.fullName,
+            username: d.username,
             phone,
             registration_source: d.source,
             registration_source_other: d.source === "other" ? d.sourceOther : "",
@@ -158,6 +160,8 @@ function SignupPage() {
       footer={<>Already have an account? <Link to="/login" className="font-semibold text-primary">Login</Link></>}>
       <form className="space-y-4" onSubmit={onSubmit} noValidate>
         <Field label="Full name" autoComplete="name" placeholder="e.g. Ada Okafor" value={form.fullName} onChange={set("fullName")} error={errors.fullName} />
+        <Field label="Username" autoComplete="username" placeholder="e.g. ada_okafor" value={form.username} onChange={set("username")} error={errors.username} />
+        <p className="-mt-3 text-xs text-muted-foreground">This is the name shown on your dashboard and referral identity (SB-username). Use 3–20 letters, numbers or underscores.</p>
         <Field label="Email address" type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={set("email")} error={errors.email} />
         <Field label="Phone number" type="tel" autoComplete="tel" inputMode="tel" placeholder="08012345678" value={form.phone} onChange={set("phone")} error={errors.phone} />
         <Field label="Password" type="password" autoComplete="new-password" value={form.password} onChange={set("password")} error={errors.password} />
