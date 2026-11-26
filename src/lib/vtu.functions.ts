@@ -172,9 +172,17 @@ export const testProviderConnection = createServerFn({ method: "POST" })
               Accept: "application/json",
             },
           });
-          ok = response.ok && hasAccessToken(await response.json());
-          message = ok ? "Arewabundle account authentication passed." : `Authentication failed (HTTP ${response.status}).`;
-          if (ok) status = "authenticated";
+          const body = (await response.json().catch(() => null)) as { AccessToken?: string; balance?: string | number; username?: string } | null;
+          ok = response.ok && hasAccessToken(body);
+          if (ok) {
+            status = "authenticated";
+            const balance = Number(body?.balance);
+            message = Number.isFinite(balance)
+              ? `Arewabundle account verified (${body?.username ?? "account"}). Provider wallet balance: ₦${balance.toLocaleString("en-NG", { minimumFractionDigits: 2 })}.`
+              : "Arewabundle account verified and access token received.";
+          } else {
+            message = `Authentication failed (HTTP ${response.status}).`;
+          }
         } catch {
           message = "Arewabundle authentication could not be completed.";
         }
@@ -221,7 +229,7 @@ export const testProviderConnection = createServerFn({ method: "POST" })
       connection_status: status,
       last_checked_at: now,
       last_error: ok ? null : message,
-      ...(ok ? { last_authenticated_at: now, enabled: true, airtime_enabled: provider?.adapter === "bigisub" } : {}),
+      ...(ok ? { last_authenticated_at: now, enabled: true, airtime_enabled: provider?.adapter === "bigisub", data_enabled: provider?.adapter === "arewabundle" } : {}),
     }).eq("id", data.id);
 
     return { ok, message };
@@ -345,6 +353,11 @@ function normalizePhone(raw: string): string {
     }
 
     const purchaseRef = `AIR-${crypto.randomUUID()}`;
+    const attemptInsert = await supabaseAdmin.from("vtu_purchase_attempts").insert({
+      reference: purchaseRef, user_id: context.userId, service: "airtime", provider: providerSettings.adapter,
+      network_name: normalizeAirtimeNetworkName(data.networkName), phone, amount_kobo: amountKobo, status: "initiated",
+    });
+    if (attemptInsert.error) throw new Error("Could not initialize transaction safety record. Your wallet has not been charged.");
     const { error: debitError } = await supabaseAdmin.rpc("wallet_post", {
       _user_id: context.userId,
       _category: "purchase",
@@ -352,7 +365,11 @@ function normalizePhone(raw: string): string {
       _reference: purchaseRef,
       _description: `Airtime: ₦${data.amountNaira} to ${phone} (${data.networkName})`,
     });
-    if (debitError) throw new Error("Wallet debit failed. No provider request was sent.");
+    if (debitError) {
+      await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "debit_failed", updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
+      throw new Error("Wallet debit failed. No provider request was sent.");
+    }
+    await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "debited", updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
 
     const refund = async (reason: string) => {
       const { error } = await supabaseAdmin.rpc("wallet_post", {
@@ -362,7 +379,15 @@ function normalizePhone(raw: string): string {
         _reference: `refund:${purchaseRef}`,
         _description: `Refund: ${reason}`,
       });
-      if (error) throw new Error(`Refund could not be posted automatically. Contact support with reference ${purchaseRef}.`);
+      const posted = error ? null : await supabaseAdmin.from("wallet_transactions")
+        .select("user_id,category,amount_kobo").eq("reference", `refund:${purchaseRef}`).maybeSingle();
+      const verified = !error && !posted?.error && posted?.data?.user_id === context.userId &&
+        posted?.data?.category === "refund" && Number(posted?.data?.amount_kobo) === amountKobo;
+      if (!verified) {
+        await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "refund_failed", provider_message: reason.slice(0, 300), updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
+        throw new Error(`Refund could not be verified. Contact support with reference ${purchaseRef}.`);
+      }
+      await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "refunded", provider_message: reason.slice(0, 300), updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
     };
 
     if (providerSettings.adapter === "bigisub") {
@@ -416,6 +441,7 @@ function normalizePhone(raw: string): string {
           }).eq("reference", purchaseRef);
         }
         if (response.ok && body?.success === true && body.data?.status === "successful") {
+          await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "successful", provider_reference: providerTxnId, provider_message: body?.message ?? "Purchase successful", updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
           await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "successful", last_checked_at: new Date().toISOString(), provider_message: body?.message ?? "Purchase successful" }).eq("reference", purchaseRef);
           return {
             success: true,
@@ -425,6 +451,7 @@ function normalizePhone(raw: string): string {
           };
         }
         if (body?.data?.status === "processing") {
+          await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "pending", provider_reference: providerTxnId, provider_message: body?.message ?? "Provider reports processing", updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
           await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "pending", last_checked_at: new Date().toISOString(), provider_message: body?.message ?? "Provider reports processing" }).eq("reference", purchaseRef);
           throw new Error(`PENDING: Bigisub transaction is processing. Do not retry. Reference: ${providerTxnId ?? purchaseRef}`);
         }
@@ -433,11 +460,14 @@ function normalizePhone(raw: string): string {
           await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "refunded", last_checked_at: new Date().toISOString(), provider_message: body?.message ?? "Provider rejected; wallet refunded" }).eq("reference", purchaseRef);
           throw new Error(`REFUNDED: ${body?.message ?? "Bigisub rejected the airtime request. Wallet debit was reversed."}`);
         }
+        await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "uncertain", provider_reference: providerTxnId, provider_message: body?.message ?? `Uncertain response HTTP ${response.status}`, updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
         await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "uncertain", last_checked_at: new Date().toISOString(), provider_message: body?.message ?? `Uncertain response HTTP ${response.status}` }).eq("reference", purchaseRef);
         throw new Error(`PENDING: Bigisub returned an uncertain result. Do not retry. Reference: ${providerTxnId ?? purchaseRef}`);
       } catch (error) {
         if (error instanceof Error && (error.message.startsWith("REFUNDED:") || error.message.startsWith("PENDING:"))) throw error;
-        await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "uncertain", last_checked_at: new Date().toISOString(), provider_message: error instanceof Error ? error.message.slice(0, 300) : "Request outcome uncertain; no provider transaction ID returned" }).eq("reference", purchaseRef);
+        const uncertainty = error instanceof Error ? error.message.slice(0, 300) : "Request outcome uncertain; no provider transaction ID returned";
+        await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "uncertain", provider_message: uncertainty, updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
+        await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "uncertain", last_checked_at: new Date().toISOString(), provider_message: uncertainty }).eq("reference", purchaseRef);
         throw new Error(`PENDING: Bigisub response uncertain; wallet not automatically refunded. Do not retry. Reference: ${purchaseRef}`);
       }
     }
@@ -484,17 +514,34 @@ function normalizePhone(raw: string): string {
       });
       const body = await response.json().catch(() => null) as { status?: string; message?: string } | null;
       if (response.ok && body?.status === "success") {
+        await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "successful", provider_message: body.message ?? "Provider reported success", updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
         return { success: true, message: `₦${data.amountNaira} airtime request succeeded for ${phone}.`, reference: purchaseRef };
       }
       if (body?.status === "fail") {
         await refund(body.message ?? "Arewabundle reported failure");
         throw new Error(`REFUNDED: ${body.message ?? "Arewabundle failed the request. Wallet debit was reversed."}`);
       }
+      await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "uncertain", provider_message: body?.message ?? `HTTP ${response.status} / undocumented status`, updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
       throw new Error(`PENDING: Provider response uncertain. Do not retry. Reference: ${purchaseRef}`);
     } catch (error) {
       if (error instanceof Error && (error.message.startsWith("REFUNDED:") || error.message.startsWith("PENDING:"))) throw error;
+      await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "uncertain", provider_message: error instanceof Error ? error.message.slice(0, 300) : "Unknown outcome", updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
       throw new Error(`PENDING: Airtime outcome uncertain. Wallet not automatically refunded. Do not retry. Reference: ${purchaseRef}`);
     }
+  });
+
+export const getPendingVtuPurchases = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: admin, error } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    if (error || !admin) throw new Error("Administrator permission required.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error: listError } = await supabaseAdmin.from("vtu_purchase_attempts")
+      .select("reference,user_id,service,provider,product_id,network_name,phone,amount_kobo,status,provider_reference,provider_message,created_at,updated_at")
+      .in("status", ["debited", "pending", "uncertain", "refund_failed"])
+      .order("created_at", { ascending: false }).limit(100);
+    if (listError) throw new Error("Could not load pending VTU purchases.");
+    return data ?? [];
   });
 
 export const getPendingBigisubAirtime = createServerFn({ method: "GET" })
@@ -629,6 +676,11 @@ export const purchaseData = createServerFn({ method: "POST" })
     // A unique reference prevents accidental duplicate ledger postings.
     const reference = `DATA-${crypto.randomUUID()}`;
     const price = Number(product.selling_price_kobo);
+    const trackingInsert = await supabaseAdmin.from("vtu_purchase_attempts").insert({
+      reference, user_id: context.userId, service: "data", provider: "arewabundle",
+      network_name: product.network_name, phone, amount_kobo: price, product_id: product.id, status: "initiated",
+    });
+    if (trackingInsert.error) throw new Error("Could not initialize transaction safety record. Your wallet has not been charged.");
     const { error: debitError } = await supabaseAdmin.rpc("wallet_post", {
       _user_id: context.userId,
       _category: "purchase",
@@ -637,19 +689,31 @@ export const purchaseData = createServerFn({ method: "POST" })
       _description: `Data: ${product.plan_name} to ${phone} (${product.network_name})`,
     });
     if (debitError) {
+      await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "debit_failed", updated_at: new Date().toISOString() }).eq("reference", reference);
       throw new Error("Wallet debit failed. No data request was sent.");
     }
+    await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "debited", updated_at: new Date().toISOString() }).eq("reference", reference);
+
+    const refundData = async (reason: string) => {
+      const { error: refundError } = await supabaseAdmin.rpc("wallet_post", {
+        _user_id: context.userId, _category: "refund", _amount_kobo: price,
+        _reference: `refund:${reference}`, _description: `Refund: ${reason}`,
+      });
+      const posted = refundError ? null : await supabaseAdmin.from("wallet_transactions")
+        .select("user_id,category,amount_kobo").eq("reference", `refund:${reference}`).maybeSingle();
+      const verified = !refundError && !posted?.error && posted?.data?.user_id === context.userId &&
+        posted?.data?.category === "refund" && Number(posted?.data?.amount_kobo) === price;
+      if (!verified) {
+        await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "refund_failed", provider_message: reason.slice(0, 300), updated_at: new Date().toISOString() }).eq("reference", reference);
+        throw new Error(`Refund failed verification. Contact support immediately with reference ${reference}.`);
+      }
+      await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "refunded", provider_message: reason.slice(0, 300), updated_at: new Date().toISOString() }).eq("reference", reference);
+    };
 
     const gatewayKey = process.env["LOVABLE_API_KEY"];
     const connectionKey = process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
     if (!gatewayKey || !connectionKey) {
-      await supabaseAdmin.rpc("wallet_post", {
-        _user_id: context.userId,
-        _category: "refund",
-        _amount_kobo: price,
-        _reference: `refund:${reference}`,
-        _description: "Refund: Arewabundle credentials unavailable before request",
-      });
+      await refundData("Arewabundle credentials unavailable before request");
       throw new Error("Provider connection is unavailable. The wallet debit was reversed.");
     }
 
@@ -669,13 +733,7 @@ export const purchaseData = createServerFn({ method: "POST" })
       );
       const authBody = await authResponse.json().catch(() => null);
       if (!authResponse.ok || !hasAccessToken(authBody)) {
-        await supabaseAdmin.rpc("wallet_post", {
-          _user_id: context.userId,
-          _category: "refund",
-          _amount_kobo: price,
-          _reference: `refund:${reference}`,
-          _description: "Refund: provider authentication failed before data request",
-        });
+        await refundData("Provider authentication failed before data request");
         throw new Error("Provider authentication failed. The wallet debit was reversed.");
       }
 
@@ -702,6 +760,7 @@ export const purchaseData = createServerFn({ method: "POST" })
         | null;
 
       if (response.ok && body?.status === "success") {
+        await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "successful", provider_message: body.message ?? "Provider reported success", updated_at: new Date().toISOString() }).eq("reference", reference);
         return {
           success: true,
           status: "success" as const,
@@ -711,25 +770,22 @@ export const purchaseData = createServerFn({ method: "POST" })
       }
 
       if (body?.status === "fail") {
-        await supabaseAdmin.rpc("wallet_post", {
-          _user_id: context.userId,
-          _category: "refund",
-          _amount_kobo: price,
-          _reference: `refund:${reference}`,
-          _description: `Refund: Arewabundle reported failure for ${reference}`,
-        });
+        await refundData(body.message ?? `Arewabundle reported failure for ${reference}`);
         throw new Error(body.message || "Arewabundle reported that the data purchase failed. Your wallet debit was reversed.");
       }
 
       // Any undocumented status, non-JSON response, or HTTP error is ambiguous.
       // Leave the debit in the ledger for admin reconciliation; never guess/refund.
+      await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "uncertain", provider_message: body?.message ?? `HTTP ${response.status} / undocumented status`, updated_at: new Date().toISOString() }).eq("reference", reference);
       throw new Error(`Purchase status needs review. Do not retry yet. Reference: ${reference}`);
     } catch (error) {
       if (error instanceof Error &&
           (error.message.includes("wallet debit was reversed") ||
-           error.message.includes("status needs review"))) {
+           error.message.includes("status needs review") ||
+           error.message.includes("Refund failed verification"))) {
         throw error;
       }
+      await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "uncertain", provider_message: error instanceof Error ? error.message.slice(0, 300) : "Unknown provider outcome", updated_at: new Date().toISOString() }).eq("reference", reference);
       throw new Error(`The provider response is uncertain. Do not retry yet. Contact support with reference: ${reference}`);
     }
   });
