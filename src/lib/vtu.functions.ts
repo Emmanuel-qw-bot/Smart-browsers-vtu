@@ -359,13 +359,19 @@ function normalizePhone(raw: string): string {
       network_name: normalizeAirtimeNetworkName(data.networkName), phone, amount_kobo: amountKobo, status: "initiated",
     });
     if (attemptInsert.error) {
-      const existing = await supabaseAdmin.from("vtu_purchase_attempts").select("reference,status,provider_message")
+      const byRequestId = await supabaseAdmin.from("vtu_purchase_attempts").select("reference,status,provider_message")
         .eq("user_id", context.userId).eq("request_id", data.requestId).maybeSingle();
-      if (existing.data) {
-        if (existing.data.status === "successful") return { success: true, message: "This purchase request was already completed. It was not sent again.", reference: existing.data.reference };
-        if (existing.data.status === "refunded") throw new Error(`REFUNDED: This prior request was refunded and was not resubmitted. Reference: ${existing.data.reference}`);
-        if (existing.data.status === "refund_failed") throw new Error(`Refund failed verification for this prior request. Contact support. Reference: ${existing.data.reference}`);
-        throw new Error(`PENDING: This request was already recorded as ${existing.data.status}. Do not retry. Reference: ${existing.data.reference}`);
+      const byFingerprint = byRequestId.data ? null : await supabaseAdmin.from("vtu_purchase_attempts").select("reference,status,provider_message")
+        .eq("user_id", context.userId).eq("service", "airtime")
+        .eq("network_name", normalizeAirtimeNetworkName(data.networkName)).eq("phone", phone).eq("amount_kobo", amountKobo)
+        .in("status", ["initiated", "debited", "pending", "uncertain", "refund_failed"]).maybeSingle();
+      const existing = byRequestId.data ?? byFingerprint?.data ?? null;
+      if (byRequestId.error || byFingerprint?.error) throw new Error("Could not verify a previous request. Your wallet has not been charged by this attempt.");
+      if (existing) {
+        if (existing.status === "successful") return { success: true, message: "This purchase request was already completed. It was not sent again.", reference: existing.reference };
+        if (existing.status === "refunded") throw new Error(`REFUNDED: This prior request was refunded and was not resubmitted. Reference: ${existing.reference}`);
+        if (existing.status === "refund_failed") throw new Error(`Refund failed verification for this prior request. Contact support. Reference: ${existing.reference}`);
+        throw new Error(`PENDING: A matching purchase is already unresolved. Do not retry. Reference: ${existing.reference}`);
       }
       throw new Error("Could not initialize transaction safety record. Your wallet has not been charged.");
     }
@@ -711,13 +717,19 @@ export const purchaseData = createServerFn({ method: "POST" })
       network_name: product.network_name, phone, amount_kobo: price, product_id: product.id, status: "initiated",
     });
     if (trackingInsert.error) {
-      const existing = await supabaseAdmin.from("vtu_purchase_attempts").select("reference,status,provider_message")
+      const byRequestId = await supabaseAdmin.from("vtu_purchase_attempts").select("reference,status,provider_message")
         .eq("user_id", context.userId).eq("request_id", data.requestId).maybeSingle();
-      if (existing.data) {
-        if (existing.data.status === "successful") return { success: true, status: "success" as const, reference: existing.data.reference, message: "This data purchase was already completed. It was not sent again." };
-        if (existing.data.status === "refunded") throw new Error(`REFUNDED: This prior request was refunded and was not resubmitted. Reference: ${existing.data.reference}`);
-        if (existing.data.status === "refund_failed") throw new Error(`Refund failed verification for this prior request. Contact support. Reference: ${existing.data.reference}`);
-        throw new Error(`PENDING: This request was already recorded as ${existing.data.status}. Do not retry. Reference: ${existing.data.reference}`);
+      const byFingerprint = byRequestId.data ? null : await supabaseAdmin.from("vtu_purchase_attempts").select("reference,status,provider_message")
+        .eq("user_id", context.userId).eq("service", "data").eq("network_name", product.network_name)
+        .eq("phone", phone).eq("product_id", product.id).eq("amount_kobo", price)
+        .in("status", ["initiated", "debited", "pending", "uncertain", "refund_failed"]).maybeSingle();
+      const existing = byRequestId.data ?? byFingerprint?.data ?? null;
+      if (byRequestId.error || byFingerprint?.error) throw new Error("Could not verify a previous request. Your wallet has not been charged by this attempt.");
+      if (existing) {
+        if (existing.status === "successful") return { success: true, status: "success" as const, reference: existing.reference, message: "This data purchase was already completed. It was not sent again." };
+        if (existing.status === "refunded") throw new Error(`REFUNDED: This prior request was refunded and was not resubmitted. Reference: ${existing.reference}`);
+        if (existing.status === "refund_failed") throw new Error(`Refund failed verification for this prior request. Contact support. Reference: ${existing.reference}`);
+        throw new Error(`PENDING: A matching purchase is already unresolved. Do not retry. Reference: ${existing.reference}`);
       }
       throw new Error("Could not initialize transaction safety record. Your wallet has not been charged.");
     }
