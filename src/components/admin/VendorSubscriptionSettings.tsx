@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";\nimport { VendorSubscriptionAdmin } from "@/components/admin/VendorSubscriptionAdmin";
+import { toast } from "sonner";
+import { VendorSubscriptionAdmin } from "@/components/admin/VendorSubscriptionAdmin";
 import { Crown, Sparkles, Rocket, Save, ToggleLeft, ToggleRight, Check, ShieldCheck, Image, Megaphone, Pin, BarChart3, Users, Package, Bell, BadgeCheck } from "lucide-react";
 
 type Plan={plan_key:"starter"|"pro"|"enterprise";name:string;description:string;weekly_price_kobo:number;monthly_price_kobo:number;max_active_products:number|null;features:Record<string,any>;benefits:string[];enabled:boolean;popular:boolean;grace_days:number};
