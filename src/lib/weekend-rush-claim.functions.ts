@@ -99,7 +99,8 @@ export const deliverWeekendRushReward=createServerFn({method:"POST"})
    const response=await fetch("https://api.arewabundle.com.ng/api/data",{method:"POST",redirect:"error",signal:AbortSignal.timeout(25000),headers:{Authorization:"Token "+authBody.AccessToken,"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({network:/^\\d+$/.test(claim.network_id)?Number(claim.network_id):claim.network_id,phone:claim.recipient_phone,data_plan:/^\\d+$/.test(claim.data_plan_id)?Number(claim.data_plan_id):claim.data_plan_id,bypass:false,"request-id":reference})});
    const body=await response.json().catch(()=>null) as any;
    if(response.ok&&body?.status==="success"){
-    await db.from("weekend_giveaway_claim_details").update({status:"fulfilled",updated_at:new Date().toISOString()}).eq("id",claim.id);
+    const {error:finalizeError}=await db.from("weekend_giveaway_claim_details").update({status:"fulfilled",updated_at:new Date().toISOString()}).eq("id",claim.id);
+    if(finalizeError){await db.from("weekend_giveaway_claim_details").update({status:"manual_review",updated_at:new Date().toISOString()}).eq("id",claim.id);return {status:"manual_review",claimId:claim.id,message:"Provider confirmed success, but the claim could not be finalized in the database. Contact support; do not retry."};}
     return {status:"fulfilled",claimId:claim.id,network:claim.network,phone:claim.recipient_phone,reference,message:"Congratulations! Your Weekend Rush reward was successfully sent."};
    }
    if(body?.status==="fail"){
