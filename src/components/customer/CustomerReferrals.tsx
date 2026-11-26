@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Gift, CheckCircle2, Clock3, LockKeyhole, Loader2 } from "lucide-react";
@@ -21,6 +21,7 @@ export function CustomerReferrals() {
   const d:any=dash.data;
   const mappingList:any[]=plans.data??[];
   const configured=mappingList.find(m=>m.network===network)?.configured===true;
+  useEffect(()=>{if(mappingList.length&&!mappingList.find(m=>m.network===network)?.configured){const first=mappingList.find(m=>m.configured)?.network;if(first)setNetwork(first as any);}},[mappingList,network]);
   const count=d?.available_count??0;
   const required=d?.required??5;
   const progress=Math.min(100,Math.round((count/required)*100));
