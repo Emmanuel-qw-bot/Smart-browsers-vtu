@@ -298,3 +298,38 @@ returns jsonb language sql stable security definer set search_path=public as $$
  from public.vendor_stores s where s.slug=lower(trim(_slug)) limit 1;
 $$;
 grant execute on function public.get_vendor_storefront(text) to anon,authenticated;
+
+-- Purchase/renewal and upgrades: carry remaining paid time forward instead of wasting it.
+create or replace function public.purchase_vendor_subscription(_plan_key text,_billing_period text)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare p public.vendor_subscription_plans%rowtype; current_sub public.vendor_subscriptions%rowtype; price bigint; days integer; wallet_bal bigint; ref text; sid uuid; base_time timestamptz; new_expiry timestamptz;
+begin
+ if auth.uid() is null then raise exception 'Sign in to subscribe.'; end if;
+ if _plan_key not in ('pro','enterprise') or _billing_period not in ('weekly','monthly') then raise exception 'Invalid plan or billing option.'; end if;
+ select * into p from vendor_subscription_plans where plan_key=_plan_key and enabled=true;
+ if not found then raise exception 'This plan is not available right now.'; end if;
+ price:=case when _billing_period='weekly' then p.weekly_price_kobo else p.monthly_price_kobo end;
+ if price<=0 then raise exception 'This billing option is unavailable.'; end if;
+ select * into current_sub from vendor_subscriptions s join vendor_subscription_plans oldp on oldp.plan_key=s.plan_key
+ where s.owner_id=auth.uid() and s.status in ('active','grace') and s.expires_at+make_interval(days=>oldp.grace_days)>now()
+ order by s.expires_at desc limit 1;
+ if current_sub.id is not null and current_sub.plan_key=_plan_key and current_sub.expires_at>now() then
+   base_time:=current_sub.expires_at;
+ else
+   base_time:=now();
+   if current_sub.id is not null and current_sub.expires_at>now() then base_time:=current_sub.expires_at; end if;
+ end if;
+ select balance_kobo into wallet_bal from wallets where user_id=auth.uid() for update;
+ if wallet_bal is null then raise exception 'Wallet not found.'; end if;
+ if wallet_bal<price then raise exception 'Insufficient wallet balance. Please fund your wallet first.'; end if;
+ ref:='vendor-subscription:'||auth.uid()::text||':'||gen_random_uuid()::text;
+ perform wallet_post(auth.uid(),'purchase',-price,ref,'Vendor subscription: '||p.name||' ('||_billing_period||')');
+ days:=case when _billing_period='weekly' then 7 else 30 end;
+ new_expiry:=base_time+make_interval(days=>days);
+ update vendor_subscriptions set status='expired',updated_at=now() where owner_id=auth.uid() and status in ('active','grace');
+ insert into vendor_subscriptions(owner_id,plan_key,status,billing_period,started_at,expires_at)
+ values(auth.uid(),_plan_key,'active',_billing_period,now(),new_expiry) returning id into sid;
+ return jsonb_build_object('subscription_id',sid,'plan',_plan_key,'expires_at',new_expiry,'charged_kobo',price);
+end $$;
+revoke execute on function public.purchase_vendor_subscription(text,text) from public,anon;
+grant execute on function public.purchase_vendor_subscription(text,text) to authenticated;
