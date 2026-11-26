@@ -381,3 +381,19 @@ begin
 end $$;
 revoke execute on function public.record_vendor_product_view(uuid) from public;
 grant execute on function public.record_vendor_product_view(uuid) to anon,authenticated;
+
+-- Enterprise featured-homepage eligibility is applied to homepage deal cards.
+create or replace function public.get_featured_market_deals()
+returns jsonb language sql stable security definer set search_path=public as $$
+ select coalesce(jsonb_agg(jsonb_build_object(
+  'id',p.id,'title',p.title,'description',p.description,'category',p.category,'state',p.state,
+  'price_kobo',p.price_kobo,'image_url',p.image_url,'is_available',p.is_available,
+  'featured_label',p.featured_label,'store_name',s.store_name,'store_slug',s.slug
+ ) order by p.created_at desc),'[]'::jsonb)
+ from public.vendor_products p join public.vendor_stores s on s.id=p.store_id
+ where p.is_available=true and p.is_featured=true
+ and (p.featured_until is null or p.featured_until>now())
+ and public.vendor_feature_enabled(s.owner_id,'featured_homepage')
+ limit 8;
+$$;
+grant execute on function public.get_featured_market_deals() to anon,authenticated;
