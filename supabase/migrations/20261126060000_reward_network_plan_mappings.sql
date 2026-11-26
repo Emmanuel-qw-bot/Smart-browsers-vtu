@@ -38,8 +38,11 @@ BEGIN
  WHEN 'Airtel' THEN v_network_id:=s.airtel_network_id;v_plan_id:=s.airtel_data_plan_id;
  WHEN 'Glo' THEN v_network_id:=s.glo_network_id;v_plan_id:=s.glo_data_plan_id; END CASE;
  IF nullif(trim(v_network_id),'') IS NULL OR nullif(trim(v_plan_id),'') IS NULL THEN RAISE EXCEPTION 'Reward is not configured for this network. Please choose another network or contact support.'; END IF;
- SELECT * INTO c FROM public.weekend_giveaway_claim_details WHERE user_id=uid AND status='slot_claimed' FOR UPDATE;
+ SELECT * INTO c FROM public.weekend_giveaway_claim_details WHERE user_id=uid AND status IN ('slot_claimed','details_confirmed','failed') ORDER BY created_at DESC LIMIT 1 FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'No uncompleted reward slot was found.'; END IF;
+ IF c.status='details_confirmed' AND c.network=_network AND c.recipient_phone=_phone AND c.network_id=v_network_id AND c.data_plan_id=v_plan_id THEN
+   RETURN jsonb_build_object('success',true,'network',_network,'phone',_phone,'claim_id',c.id,'already_saved',true);
+ END IF;
  UPDATE public.weekend_giveaway_claim_details SET network=_network,recipient_phone=_phone,network_id=v_network_id,data_plan_id=v_plan_id,status='details_confirmed',updated_at=now() WHERE id=c.id;
  RETURN jsonb_build_object('success',true,'network',_network,'phone',_phone,'claim_id',c.id);
 END $$;
@@ -54,6 +57,7 @@ BEGIN
  PERFORM 1 FROM public.profiles WHERE id=uid FOR UPDATE;
  SELECT * INTO s FROM public.referral_reward_settings WHERE id=true;
  IF NOT s.enabled THEN RAISE EXCEPTION 'Referral rewards are currently disabled'; END IF;
+ IF EXISTS(SELECT 1 FROM public.referral_reward_claims WHERE referrer_user_id=uid AND status IN ('reserved','processing','pending')) THEN RAISE EXCEPTION 'You have a reward claim awaiting processing or reconciliation. Resolve it before claiming another reward.'; END IF;
  IF _network NOT IN ('MTN','Airtel','Glo') OR _phone !~ '^0[789][01][0-9]{8}$' THEN RAISE EXCEPTION 'Choose MTN, Airtel or Glo and enter a valid Nigerian phone number'; END IF;
  SELECT count(*) INTO q FROM public.referral_qualifications rq WHERE rq.referrer_user_id=uid AND NOT EXISTS(SELECT 1 FROM public.referral_reward_claim_qualifications used WHERE used.qualification_id=rq.id);
  IF q<s.required_referrals THEN RAISE EXCEPTION 'You have not qualified for the referral reward yet'; END IF;
