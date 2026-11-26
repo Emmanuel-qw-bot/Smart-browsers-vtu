@@ -11,7 +11,7 @@ type Product={id:string;title:string;description:string;category:string;state:st
 type MarketProduct=Product & {verified_vendor?:boolean;vendor_stores?:{store_name:string;slug:string;whatsapp_phone:string;pickup_delivery_note:string}|null};
 const NIGERIAN_STATES=["Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno","Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT Abuja","Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba","Yobe","Zamfara"];
 const PRODUCT_CATEGORIES=["Fashion & Clothing","Electronics & Gadgets","Phones & Accessories","Beauty & Personal Care","Home & Kitchen Appliances","Food & Drinks","Books & Stationery","Shoes & Bags","Jewellery & Accessories","Baby & Kids","Sports & Fitness","Services","Other"];
-type StoreProfile={id:string;store_name:string;slug:string;tagline:string;whatsapp_phone:string;pickup_delivery_note:string};
+type StoreProfile={id:string;store_name:string;slug:string;tagline:string;whatsapp_phone:string;pickup_delivery_note:string;logo_url?:string|null};
 type Receipt={id:string;receipt_number:string;customer_name:string;customer_phone:string;items:any[];subtotal_kobo:number;payment_status:"paid"|"unpaid";created_at:string;note:string};
 type VendorOrder={id:string;order_number:string;buyer_name:string;buyer_phone:string;delivery_location:string;buyer_note:string;status:string;payment_status:string;total_kobo:number;created_at:string;vendor_order_items:any[]};
 const money=(k:number)=>`₦${(k/100).toLocaleString("en-NG",{maximumFractionDigits:2})}`;
@@ -35,7 +35,7 @@ export function CustomerMiniShop(){
   const [marketOrderBusy,setMarketOrderBusy]=useState(false);
   const [marketOrderSuccess,setMarketOrderSuccess]=useState<{number:string,total:number}|null>(null);
   const marketQuery=useQuery({queryKey:["mini-shop-market"],queryFn:async()=>{const {data,error}=await supabase.rpc("get_vendor_market_products" as any);if(error)throw error;return (data??[]) as unknown as MarketProduct[];}});
-  const [storeForm,setStoreForm]=useState({store_name:"",slug:"",tagline:"",whatsapp_phone:"",pickup_delivery_note:""});
+  const [storeForm,setStoreForm]=useState({store_name:"",slug:"",tagline:"",whatsapp_phone:"",pickup_delivery_note:"",logo_url:""});
   const [storeTouched,setStoreTouched]=useState(false);
   const [saving,setSaving]=useState(false);
   const [editing,setEditing]=useState<Product|null>(null);
@@ -75,13 +75,13 @@ export function CustomerMiniShop(){
   async function markOrderNotificationsRead(){if(unreadOrderCount===0)return;await supabase.from("user_notifications" as any).update({read_at:new Date().toISOString()}).eq("notification_type","mini_shop_order").is("read_at",null);await qc.invalidateQueries({queryKey:["user-notifications"]});await qc.invalidateQueries({queryKey:["mini-shop-order-notifications"]});}
   async function updateOrder(id:string,changes:Record<string,any>){try{const {error}=await supabase.from("vendor_orders" as any).update(changes).eq("id",id);if(error)throw error;toast.success("Order updated.");await qc.invalidateQueries({queryKey:["mini-shop-orders",store?.id]});}catch(err){toast.error(err instanceof Error?err.message:"Could not update order.");}}
   useEffect(()=>{
-    if(store&&!storeTouched) setStoreForm({store_name:store.store_name,slug:store.slug,tagline:store.tagline??"",whatsapp_phone:store.whatsapp_phone??"",pickup_delivery_note:store.pickup_delivery_note??""});
+    if(store&&!storeTouched) setStoreForm({store_name:store.store_name,slug:store.slug,tagline:store.tagline??"",whatsapp_phone:store.whatsapp_phone??"",pickup_delivery_note:store.pickup_delivery_note??"",logo_url:store.logo_url??""});
   },[store,storeTouched]);
   const chosen=products.filter(p=>(quantities[p.id]??0)>0);
   const total=chosen.reduce((sum,p)=>sum+p.price_kobo*(quantities[p.id]??0),0);
 
   function syncStoreForm(){
-    setStoreForm({store_name:store?.store_name??"",slug:store?.slug??"",tagline:store?.tagline??"",whatsapp_phone:store?.whatsapp_phone??"",pickup_delivery_note:store?.pickup_delivery_note??""});
+    setStoreForm({store_name:store?.store_name??"",slug:store?.slug??"",tagline:store?.tagline??"",whatsapp_phone:store?.whatsapp_phone??"",pickup_delivery_note:store?.pickup_delivery_note??"",logo_url:store?.logo_url??""});
     setStoreTouched(false);
   }
   async function submitStore(e:React.FormEvent){
@@ -191,6 +191,8 @@ export function CustomerMiniShop(){
         <label className="block text-sm font-medium">Tagline<input maxLength={140} value={storeForm.tagline} onChange={e=>setStoreForm(s=>({...s,tagline:e.target.value}))} placeholder="Affordable gadgets, delivered around campus" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
         <label className="block text-sm font-medium">WhatsApp order number<input value={storeForm.whatsapp_phone} onChange={e=>setStoreForm(s=>({...s,whatsapp_phone:e.target.value}))} inputMode="tel" placeholder="08012345678" className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
         <label className="block text-sm font-medium">Delivery or pickup details<textarea maxLength={500} rows={3} value={storeForm.pickup_delivery_note} onChange={e=>setStoreForm(s=>({...s,pickup_delivery_note:e.target.value}))} placeholder="Delivery areas, pickup point, opening hours..." className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/></label>
+        {planQuery.data?.plan?.features?.custom_branding?<label className="block text-sm font-medium">Shop logo URL<input type="url" value={storeForm.logo_url} onChange={e=>setStoreForm(s=>({...s,logo_url:e.target.value}))} placeholder="https://..." className="mt-1 w-full rounded-xl border bg-background px-3 py-3"/><p className="text-xs text-muted-foreground">Add a public image URL for your shop logo.</p></label>:<div className="rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm dark:bg-violet-950/20"><p className="font-semibold">Custom shop branding is a Pro feature.</p><Link to="/app/subscriptions" className="mt-1 inline-block text-violet-700 underline">Upgrade your plan</Link></div>}
+
         <button disabled={busy} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{busy?<Loader2 className="mx-auto size-4 animate-spin"/>:"Save shop profile"}</button>
       </form>
       {store&&<button onClick={shareCatalog} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium"><Share2 className="size-4"/>Share catalogue on WhatsApp</button>}
