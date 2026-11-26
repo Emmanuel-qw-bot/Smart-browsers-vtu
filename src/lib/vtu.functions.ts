@@ -363,7 +363,9 @@ function normalizePhone(raw: string): string {
         .eq("user_id", context.userId).eq("request_id", data.requestId).maybeSingle();
       if (existing.data) {
         if (existing.data.status === "successful") return { success: true, message: "This purchase request was already completed. It was not sent again.", reference: existing.data.reference };
-        throw new Error(`This request was already recorded as ${existing.data.status}. Do not retry. Reference: ${existing.data.reference}`);
+        if (existing.data.status === "refunded") throw new Error(`REFUNDED: This prior request was refunded and was not resubmitted. Reference: ${existing.data.reference}`);
+        if (existing.data.status === "refund_failed") throw new Error(`Refund failed verification for this prior request. Contact support. Reference: ${existing.data.reference}`);
+        throw new Error(`PENDING: This request was already recorded as ${existing.data.status}. Do not retry. Reference: ${existing.data.reference}`);
       }
       throw new Error("Could not initialize transaction safety record. Your wallet has not been charged.");
     }
@@ -713,7 +715,9 @@ export const purchaseData = createServerFn({ method: "POST" })
         .eq("user_id", context.userId).eq("request_id", data.requestId).maybeSingle();
       if (existing.data) {
         if (existing.data.status === "successful") return { success: true, status: "success" as const, reference: existing.data.reference, message: "This data purchase was already completed. It was not sent again." };
-        throw new Error(`This request was already recorded as ${existing.data.status}. Do not retry. Reference: ${existing.data.reference}`);
+        if (existing.data.status === "refunded") throw new Error(`REFUNDED: This prior request was refunded and was not resubmitted. Reference: ${existing.data.reference}`);
+        if (existing.data.status === "refund_failed") throw new Error(`Refund failed verification for this prior request. Contact support. Reference: ${existing.data.reference}`);
+        throw new Error(`PENDING: This request was already recorded as ${existing.data.status}. Do not retry. Reference: ${existing.data.reference}`);
       }
       throw new Error("Could not initialize transaction safety record. Your wallet has not been charged.");
     }
