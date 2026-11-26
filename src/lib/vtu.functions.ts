@@ -634,6 +634,7 @@ export const requeryBigisubAirtime = createServerFn({ method: "POST" })
     const now = new Date().toISOString();
     if (status === "successful") {
       await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "successful", last_checked_at: now, provider_message: message }).eq("reference", data.reference);
+      await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "successful", provider_message: message, updated_at: now }).eq("reference", data.reference);
       return { status, message };
     }
     if (status === "failed") {
@@ -641,11 +642,17 @@ export const requeryBigisubAirtime = createServerFn({ method: "POST" })
         _user_id: pending.user_id, _category: "refund", _amount_kobo: pending.amount_naira * 100,
         _reference: `refund:${pending.reference}`, _description: `Refund confirmed failed Bigisub airtime ${pending.reference}`,
       });
-      if (refundError) throw new Error("Bigisub confirmed failure, but the customer refund could not be posted. Contact support immediately.");
-      await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "refunded", last_checked_at: now, provider_message: `${message} Customer wallet refund posted.` }).eq("reference", data.reference);
-      return { status: "refunded", message: `${message} Customer wallet refunded.` };
+      const posted = refundError ? null : await supabaseAdmin.from("wallet_transactions")
+        .select("user_id,category,amount_kobo").eq("reference", `refund:${pending.reference}`).maybeSingle();
+      const verified = !refundError && !posted?.error && posted?.data?.user_id === pending.user_id &&
+        posted?.data?.category === "refund" && Number(posted?.data?.amount_kobo) === pending.amount_naira * 100;
+      if (!verified) throw new Error("Bigisub confirmed failure, but the customer refund could not be verified. Contact support immediately.");
+      await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "refunded", last_checked_at: now, provider_message: `${message} Customer wallet refund verified.` }).eq("reference", data.reference);
+      await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "refunded", provider_message: message, updated_at: now }).eq("reference", data.reference);
+      return { status: "refunded", message: `${message} Customer wallet refund verified.` };
     }
     await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "pending", last_checked_at: now, provider_message: message }).eq("reference", data.reference);
+    await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "pending", provider_message: message, updated_at: now }).eq("reference", data.reference);
     return { status: "pending", message: message || "Still processing. Wait before checking again." };
   });
 
@@ -798,7 +805,8 @@ export const purchaseData = createServerFn({ method: "POST" })
       throw new Error(`Purchase status needs review. Do not retry yet. Reference: ${reference}`);
     } catch (error) {
       if (error instanceof Error &&
-          (error.message.includes("wallet debit was reversed") ||
+          (error.message.startsWith("REFUNDED:") ||
+           error.message.includes("wallet debit was reversed") ||
            error.message.includes("status needs review") ||
            error.message.includes("Refund failed verification"))) {
         throw error;
