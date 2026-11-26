@@ -12,6 +12,7 @@ import { PendingVtuPurchaseMonitoring } from "@/components/admin/PendingVtuPurch
 import { AdminAirtimeCash } from "@/components/admin/AdminAirtimeCash";
 import { AdminReferralSettings } from "@/components/admin/AdminReferralSettings";
 import { VendorSubscriptionSettings } from "@/components/admin/VendorSubscriptionSettings";
+import { WeekendRushClaimAdmin } from "@/components/admin/WeekendRushClaimAdmin";
 
 export const Route = createFileRoute("/_authenticated/admin/$section")({
   loader: async ({ params, context }) => {
@@ -49,7 +50,7 @@ function AdminSection() {
   if (slug === "welcome-bonus") return <PageScaffold item={item} live><WelcomeBonusSettings /></PageScaffold>;
   if (slug === "referral-settings") return <PageScaffold item={item} live><AdminReferralSettings /></PageScaffold>;
   if (slug === "support-settings") return <PageScaffold item={item} live><SupportSettings /></PageScaffold>;
-  if (slug === "weekend-giveaways") return <PageScaffold item={item} live><WeekendGiveawaySettings /></PageScaffold>;
+  if (slug === "weekend-giveaways") return <PageScaffold item={item} live><div className="space-y-5"><WeekendGiveawaySettings /><WeekendRushClaimAdmin /></div></PageScaffold>;
   if (slug === "announcements") return <PageScaffold item={item} live><AnnouncementSettings /></PageScaffold>;
   if (slug === "airtime-cash") return <PageScaffold item={item} live><AdminAirtimeCash /></PageScaffold>;
   if (slug === "vendor-subscriptions") return <PageScaffold item={item} live><VendorSubscriptionSettings /></PageScaffold>;
