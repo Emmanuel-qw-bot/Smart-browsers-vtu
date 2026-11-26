@@ -78,3 +78,5 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.reserve_referral_reward_claim(text,text,uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.reserve_referral_reward_claim(text,text,uuid) TO authenticated;
 
+
+ALTER TABLE public.weekend_giveaway_claim_details ADD COLUMN IF NOT EXISTS admin_resolution_note text, ADD COLUMN IF NOT EXISTS admin_resolved_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
