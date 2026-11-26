@@ -1,6 +1,6 @@
 -- Weekend Rush qualification is tied to verified successful data VTU attempts, not wallet debits.
 CREATE OR REPLACE FUNCTION public.weekend_rush_campaign_key(p_opens_at timestamptz)
-RETURNS text LANGUAGE sql IMMUTABLE SET search_path=public AS $$
+RETURNS text LANGUAGE sql STABLE SET search_path=public AS $
  SELECT COALESCE(to_char(p_opens_at AT TIME ZONE 'UTC','YYYYMMDDHH24MISS'),to_char(now() AT TIME ZONE 'UTC','IYYYIW'));
 $$;
 
