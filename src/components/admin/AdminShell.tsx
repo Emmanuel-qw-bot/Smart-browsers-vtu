@@ -1,13 +1,20 @@
 import { useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Link, useParams } from "@tanstack/react-router";
 import { Menu, ShieldAlert, X } from "lucide-react";
 import { adminNav } from "@/config/navigation";
 import { cn } from "@/lib/utils";
 import { Footer } from "@/components/shared/Footer";
+import { getAdminNavigationCounts } from "@/lib/admin-navigation.functions";
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const { section } = useParams({ strict: false }) as { section?: string };
   const [open, setOpen] = useState(false);
+  const countsFn=useServerFn(getAdminNavigationCounts);
+  const countsQuery=useQuery({queryKey:["admin","navigation-counts"],queryFn:()=>countsFn(),refetchInterval:60000});
+  const counts=countsQuery.data??{} as Record<string,number>;
+  const badges:Record<string,number>={customers:counts.customers??0,transactions:counts.transactions??0,"referral-settings":counts.referralClaims??0,"weekend-giveaways":counts.weekendClaims??0,"airtime-cash":counts.airtimeCash??0,"vendor-subscriptions":counts.vendorSubscriptions??0};
 
   const Sidebar = () => (
     <div className="flex h-full flex-col bg-sidebar p-4 text-sidebar-foreground">
@@ -20,7 +27,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <Link key={n.slug} to="/admin/$section" params={{ section: n.slug }} onClick={() => setOpen(false)}
             className={cn("flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent",
               section === n.slug && "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary")}>
-            <n.icon className="size-4 shrink-0" /> <span className="truncate">{n.label}</span>
+            <n.icon className="size-4 shrink-0" /> <span className="min-w-0 flex-1 truncate">{n.label}</span>{(badges[n.slug]??0)>0&&<span className="inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold leading-none text-destructive-foreground">{(badges[n.slug]??0)>99?"99+":badges[n.slug]}</span>}
           </Link>
         ))}
       </nav>
