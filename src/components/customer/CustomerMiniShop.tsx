@@ -24,7 +24,7 @@ export function CustomerMiniShop(){
   const saveProduct=useServerFn(saveMiniShopProduct);
   const removeProduct=useServerFn(deleteMiniShopProduct);
   const createReceipt=useServerFn(issueMiniShopReceipt);
-  const [tab,setTab]=useState<"store"|"products"|"orders"|"receipt"|"history">("store");
+  const [tab,setTab]=useState<"store"|"products"|"campaigns"|"customers"|"orders"|"receipt"|"history">("store");
   const [section,setSection]=useState<"choose"|"my-shop"|"market">("choose");
   const [marketSearch,setMarketSearch]=useState("");
   const [marketState,setMarketState]=useState("");
