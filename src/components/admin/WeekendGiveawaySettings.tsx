@@ -30,6 +30,7 @@ export function WeekendGiveawaySettings() {
   const [winners, setWinners] = useState(String(data.maximum_winners));
   const [opens, setOpens] = useState(localDate(data.opens_at));
   const [closes, setCloses] = useState(localDate(data.closes_at));
+  const [maps,setMaps]=useState({mtn_network_id:data.mtn_network_id??"",mtn_data_plan_id:data.mtn_data_plan_id??"",airtel_network_id:data.airtel_network_id??"",airtel_data_plan_id:data.airtel_data_plan_id??"",glo_network_id:data.glo_network_id??"",glo_data_plan_id:data.glo_data_plan_id??""});
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -41,6 +42,7 @@ export function WeekendGiveawaySettings() {
         minimum_data_purchases: Number(minimum), maximum_winners: Number(winners),
         opens_at: opens ? new Date(opens).toISOString() : null,
         closes_at: closes ? new Date(closes).toISOString() : null,
+        ...maps,
       }});
       await client.invalidateQueries({ queryKey: weekendGiveawayQuery.queryKey });
       toast.success("Weekend Rush settings saved.");
@@ -64,6 +66,10 @@ export function WeekendGiveawaySettings() {
           <label className="space-y-1 text-sm font-medium">Maximum winners<Input type="number" min="1" max="100" value={winners} onChange={e => setWinners(e.target.value)} /></label>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">Your agreed starting rules are 1 GB, at least 10 successful data purchases, and 10 winners.</p>
+      </section>
+      <section className="rounded-2xl border bg-card p-4 sm:p-6">
+        <h2 className="mb-3 font-display text-lg font-semibold">Reward plan mapping</h2><p className="mb-3 text-xs text-muted-foreground">Enter the Arewabundle network ID and plan ID for each network. These are used only for free reward delivery, not normal purchases. Leave 9mobile unsupported.</p>
+        <div className="space-y-3">{(["mtn","airtel","glo"] as const).map((n)=>{const label=n==="mtn"?"MTN":n==="airtel"?"Airtel":"Glo";return <div key={n} className="grid gap-2 rounded-xl border p-3 sm:grid-cols-2"><strong className="sm:col-span-2">{label}</strong><label className="text-sm">Network ID<Input value={maps[n+"_network_id"]} onChange={e=>setMaps({...maps,[n+"_network_id"]:e.target.value})} /></label><label className="text-sm">Data plan ID<Input value={maps[n+"_data_plan_id"]} onChange={e=>setMaps({...maps,[n+"_data_plan_id"]:e.target.value})} /></label></div>})}</div>
       </section>
       <section className="rounded-2xl border bg-card p-4 sm:p-6">
         <div className="mb-3 flex items-center gap-2"><Clock className="size-5 text-primary" /><h2 className="font-display text-lg font-semibold">Application schedule</h2></div>
