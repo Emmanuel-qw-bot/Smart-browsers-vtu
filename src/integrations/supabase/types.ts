@@ -253,8 +253,8 @@ export type Database = {
         Relationships: []
       }
       weekend_giveaway_claim_details: {
-        Row: { id: string; campaign_key: string; user_id: string; slot_id: string; network: string | null; recipient_phone: string | null; network_id:string|null; data_plan_id:string|null; provider_reference:string|null; status: string; created_at: string; updated_at: string }
-        Insert: { id?: string; campaign_key: string; user_id: string; slot_id: string; network?: string | null; recipient_phone?: string | null; network_id?:string|null; data_plan_id?:string|null; provider_reference?:string|null; status?: string; created_at?: string; updated_at?: string }
+        Row: { id: string; campaign_key: string; user_id: string; slot_id: string; network: string | null; recipient_phone: string | null; network_id:string|null; data_plan_id:string|null; provider_reference:string|null; admin_resolution_note:string|null; admin_resolved_by:string|null; status: string; created_at: string; updated_at: string }
+        Insert: { id?: string; campaign_key: string; user_id: string; slot_id: string; network?: string | null; recipient_phone?: string | null; network_id?:string|null; data_plan_id?:string|null; provider_reference?:string|null; admin_resolution_note?:string|null; admin_resolved_by?:string|null; status?: string; created_at?: string; updated_at?: string }
         Update: { id?: string; campaign_key?: string; user_id?: string; slot_id?: string; network?: string | null; recipient_phone?: string | null; network_id?:string|null; data_plan_id?:string|null; provider_reference?:string|null; status?: string; created_at?: string; updated_at?: string }
         Relationships: []
       }
