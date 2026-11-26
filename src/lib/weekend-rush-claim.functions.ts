@@ -74,3 +74,42 @@ export const saveWeekendRushRecipient = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message || "Could not save reward details.");
     return result;
   });
+
+export const deliverWeekendRushReward=createServerFn({method:"POST"})
+ .middleware([requireSupabaseAuth])
+ .inputValidator((input)=>z.object({claimId:z.string().uuid()}).parse(input))
+ .handler(async({data,context})=>{
+  const {supabaseAdmin}=await import("@/integrations/supabase/client.server");const db=supabaseAdmin as any;
+  const {data:claim,error}=await db.from("weekend_giveaway_claim_details").select("id,user_id,network,recipient_phone,network_id,data_plan_id,status").eq("id",data.claimId).single();
+  if(error||!claim||claim.user_id!==context.userId)throw new Error("Could not verify your Weekend Rush claim.");
+  if(claim.status!=="details_confirmed")throw new Error("This reward is already processing, delivered, or requires support. Do not submit again.");
+  if(!claim.network_id||!claim.data_plan_id||!claim.recipient_phone||!claim.network)throw new Error("Reward mapping or recipient details are incomplete.");
+  const reference="WR-"+claim.id;
+  const {data:reserved,error:casError}=await db.from("weekend_giveaway_claim_details").update({status:"fulfilment_pending",provider_reference:reference,updated_at:new Date().toISOString()}).eq("id",claim.id).eq("status","details_confirmed").select("id").maybeSingle();
+  if(casError||!reserved)throw new Error("This reward is already processing. Do not submit again.");
+  const gatewayKey=process.env["LOVABLE_API_KEY"],connectionKey=process.env["UDC_AREWABUNDLE_ACCOUNT_API_KEY"];
+  if(!gatewayKey||!connectionKey){await db.from("weekend_giveaway_claim_details").update({status:"failed"}).eq("id",claim.id);throw new Error("Provider connection unavailable. Your claim is retained for support.");}
+  let sent=false;
+  try{
+   const auth=await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user",{method:"POST",redirect:"error",signal:AbortSignal.timeout(15000),headers:{Authorization:"Bearer "+gatewayKey,"X-Connection-Api-Key":connectionKey,Accept:"application/json"}});
+   const authBody=await auth.json().catch(()=>null) as any;
+   if(!auth.ok||!authBody?.AccessToken){await db.from("weekend_giveaway_claim_details").update({status:"failed"}).eq("id",claim.id);throw new Error("Provider authentication failed before delivery. Your claim remains available.");}
+   sent=true;
+   const response=await fetch("https://api.arewabundle.com.ng/api/data",{method:"POST",redirect:"error",signal:AbortSignal.timeout(25000),headers:{Authorization:"Token "+authBody.AccessToken,"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({network:/^\\d+$/.test(claim.network_id)?Number(claim.network_id):claim.network_id,phone:claim.recipient_phone,data_plan:/^\\d+$/.test(claim.data_plan_id)?Number(claim.data_plan_id):claim.data_plan_id,bypass:false,"request-id":reference})});
+   const body=await response.json().catch(()=>null) as any;
+   if(response.ok&&body?.status==="success"){
+    await db.from("weekend_giveaway_claim_details").update({status:"fulfilled",updated_at:new Date().toISOString()}).eq("id",claim.id);
+    return {status:"fulfilled",claimId:claim.id,network:claim.network,phone:claim.recipient_phone,reference,message:"Congratulations! Your Weekend Rush reward was successfully sent."};
+   }
+   if(body?.status==="fail"){
+    await db.from("weekend_giveaway_claim_details").update({status:"failed",updated_at:new Date().toISOString()}).eq("id",claim.id);
+    return {status:"failed",claimId:claim.id,message:"The provider confirmed delivery failed. Your claim is retained; contact support before retrying."};
+   }
+   await db.from("weekend_giveaway_claim_details").update({status:"manual_review",updated_at:new Date().toISOString()}).eq("id",claim.id);
+   return {status:"manual_review",claimId:claim.id,message:"Delivery status is uncertain. Do not retry; contact support with your claim reference."};
+  }catch(error){
+   if(sent)await db.from("weekend_giveaway_claim_details").update({status:"manual_review",updated_at:new Date().toISOString()}).eq("id",claim.id);
+   else await db.from("weekend_giveaway_claim_details").update({status:"failed",updated_at:new Date().toISOString()}).eq("id",claim.id);
+   throw new Error(sent?"Provider outcome uncertain. Do not retry. Contact support with claim "+claim.id:error instanceof Error?error.message:"Reward request failed before delivery.");
+  }
+ });
