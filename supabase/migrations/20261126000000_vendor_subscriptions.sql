@@ -155,3 +155,21 @@ for select using (
    ) < public.vendor_active_product_limit(owner_id)
  )
 );
+
+-- SECURITY DEFINER helper avoids recursive RLS when ranking public product listings.
+create or replace function public.vendor_product_public_allowed(_product uuid,_owner uuid,_store uuid,_created_at timestamptz)
+returns boolean language plpgsql stable security definer set search_path=public as $$
+declare product_limit integer; ahead bigint;
+begin
+ product_limit:=vendor_active_product_limit(_owner);
+ if product_limit is null then return true; end if;
+ select count(*) into ahead from vendor_products newer
+ where newer.store_id=_store and newer.is_available=true and newer.id<>_product
+ and (newer.created_at>_created_at or (newer.created_at=_created_at and newer.id>_product));
+ return ahead<product_limit;
+end $$;
+revoke execute on function public.vendor_product_public_allowed(uuid,uuid,uuid,timestamptz) from public;
+grant execute on function public.vendor_product_public_allowed(uuid,uuid,uuid,timestamptz) to anon,authenticated;
+drop policy if exists "Public view available products within plan limits" on public.vendor_products;
+create policy "Public view available products within plan limits" on public.vendor_products
+for select using (is_available=true and public.vendor_product_public_allowed(id,owner_id,store_id,created_at));
