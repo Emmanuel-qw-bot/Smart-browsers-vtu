@@ -17,6 +17,11 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.weekend_rush_refresh_eligibility(text) FROM PUBLIC,authenticated,anon;
 
+REVOKE ALL ON FUNCTION public.weekend_rush_campaign_key(timestamptz) FROM PUBLIC,authenticated,anon;
+REVOKE ALL ON FUNCTION public.weekend_rush_refresh_after_vtu() FROM PUBLIC,authenticated,anon;
+REVOKE ALL ON FUNCTION public.weekend_rush_refresh_when_settings_change() FROM PUBLIC,authenticated,anon;
+REVOKE ALL ON FUNCTION public.notify_weekend_rush_open() FROM PUBLIC,authenticated,anon;
+
 CREATE OR REPLACE FUNCTION public.weekend_rush_refresh_after_vtu()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE campaign text; settings_row public.weekend_giveaway_settings%ROWTYPE;
