@@ -310,7 +310,7 @@ begin
  if not found then raise exception 'This plan is not available right now.'; end if;
  price:=case when _billing_period='weekly' then p.weekly_price_kobo else p.monthly_price_kobo end;
  if price<=0 then raise exception 'This billing option is unavailable.'; end if;
- select * into current_sub from vendor_subscriptions s join vendor_subscription_plans oldp on oldp.plan_key=s.plan_key
+ select s.* into current_sub from vendor_subscriptions s join vendor_subscription_plans oldp on oldp.plan_key=s.plan_key
  where s.owner_id=auth.uid() and s.status in ('active','grace') and s.expires_at+make_interval(days=>oldp.grace_days)>now()
  order by s.expires_at desc limit 1;
  if current_sub.id is not null and current_sub.plan_key=_plan_key and current_sub.expires_at>now() then
