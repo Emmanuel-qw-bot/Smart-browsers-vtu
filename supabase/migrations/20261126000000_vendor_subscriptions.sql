@@ -445,3 +445,20 @@ $$;
 grant execute on function public.get_vendor_storefront(text) to anon,authenticated;
 
 update public.vendor_subscription_plans set features=features||'{"stock_alert_threshold":3}'::jsonb where plan_key in ('pro','enterprise');
+
+-- Enterprise vendors get automatic carousel eligibility; admin-curated featured products remain eligible too.
+create or replace function public.get_featured_market_deals()
+returns jsonb language sql stable security definer set search_path=public as $$
+ select coalesce(jsonb_agg(jsonb_build_object(
+  'id',p.id,'title',p.title,'description',p.description,'category',p.category,'state',p.state,
+  'price_kobo',p.price_kobo,'image_url',p.image_url,'is_available',p.is_available,
+  'featured_label',case when public.vendor_feature_enabled(s.owner_id,'featured_homepage') then 'Enterprise Pick' else p.featured_label end,
+  'store_name',s.store_name,'store_slug',s.slug
+ ) order by public.vendor_feature_enabled(s.owner_id,'featured_homepage') desc,p.is_featured desc,p.created_at desc),'[]'::jsonb)
+ from public.vendor_products p join public.vendor_stores s on s.id=p.store_id
+ where p.is_available=true
+ and (p.is_featured=true or public.vendor_feature_enabled(s.owner_id,'featured_homepage'))
+ and (p.featured_until is null or p.featured_until>now())
+ limit 8;
+$$;
+grant execute on function public.get_featured_market_deals() to anon,authenticated;
