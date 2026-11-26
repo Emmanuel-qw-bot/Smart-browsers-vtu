@@ -163,7 +163,6 @@ function SignupPage() {
       <form className="space-y-4" onSubmit={onSubmit} noValidate>
         <Field label="Full name" autoComplete="name" placeholder="e.g. Ada Okafor" value={form.fullName} onChange={set("fullName")} error={errors.fullName} />
         <Field label="Username" autoComplete="username" placeholder="e.g. ada_okafor" value={form.username} onChange={set("username")} error={errors.username} />
-        <p className="-mt-3 text-xs text-muted-foreground">This is the name shown on your dashboard and referral identity (SB-username). Use 3–20 letters, numbers or underscores.</p>
         <Field label="Email address" type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={set("email")} error={errors.email} />
         <Field label="Phone number" type="tel" autoComplete="tel" inputMode="tel" placeholder="08012345678" value={form.phone} onChange={set("phone")} error={errors.phone} />
         <Field label="Password" type="password" autoComplete="new-password" value={form.password} onChange={set("password")} error={errors.password} />
