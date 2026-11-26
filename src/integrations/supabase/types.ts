@@ -74,6 +74,7 @@ export type Database = {
           email: string
           email_verified: boolean
           full_name: string
+          username: string
           id: string
           invite_code: string
           phone: string
@@ -88,6 +89,7 @@ export type Database = {
           email: string
           email_verified?: boolean
           full_name: string
+          username: string
           id: string
           invite_code: string
           phone: string
@@ -102,6 +104,7 @@ export type Database = {
           email?: string
           email_verified?: boolean
           full_name?: string
+          username?: string
           id?: string
           invite_code?: string
           phone?: string
