@@ -50,8 +50,9 @@ export const getWeekendRushEligibility=createServerFn({method:"GET"})
   }
   const now=Date.now(),opens=settings.opens_at?new Date(settings.opens_at).getTime():null,closes=settings.closes_at?new Date(settings.closes_at).getTime():null;
   const isOpen=!!settings.enabled&&(opens===null||now>=opens)&&(closes===null||now<=closes);
+  const {data:profile}=await db.from("profiles").select("username,full_name").eq("id",context.userId).maybeSingle();
   const purchases=count??0;
-  return {campaign_key:campaign,successful_data_purchases:purchases,minimum_data_purchases:settings.minimum_data_purchases,eligible:purchases>=settings.minimum_data_purchases,is_open:isOpen,has_claim:!!claim,claim:claim?{...claim,slot_number:slotNumber}:null,reward_data_mb:settings.reward_data_mb,maximum_winners:settings.maximum_winners};
+  return {username:profile?.username??null,full_name:profile?.full_name??null,campaign_key:campaign,successful_data_purchases:purchases,minimum_data_purchases:settings.minimum_data_purchases,eligible:purchases>=settings.minimum_data_purchases,is_open:isOpen,has_claim:!!claim,claim:claim?{...claim,slot_number:slotNumber}:null,reward_data_mb:settings.reward_data_mb,maximum_winners:settings.maximum_winners};
 });
 
 export const claimWeekendRushSlot = createServerFn({ method: "POST" })
