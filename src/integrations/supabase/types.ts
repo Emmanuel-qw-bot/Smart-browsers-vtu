@@ -379,6 +379,60 @@ export type Database = {
           },
         ]
       }
+      vtu_purchase_attempts: {
+        Row: {
+          reference: string
+          request_id: string | null
+          user_id: string
+          service: "data" | "airtime"
+          provider: "arewabundle" | "bigisub"
+          product_id: string | null
+          network_name: string
+          phone: string
+          amount_kobo: number
+          status: "initiated" | "debit_failed" | "debited" | "pending" | "uncertain" | "successful" | "refunded" | "refund_failed"
+          provider_reference: string | null
+          provider_message: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          reference: string
+          request_id?: string | null
+          user_id: string
+          service: "data" | "airtime"
+          provider: "arewabundle" | "bigisub"
+          product_id?: string | null
+          network_name: string
+          phone: string
+          amount_kobo: number
+          status?: "initiated" | "debit_failed" | "debited" | "pending" | "uncertain" | "successful" | "refunded" | "refund_failed"
+          provider_reference?: string | null
+          provider_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          reference?: string
+          request_id?: string | null
+          user_id?: string
+          service?: "data" | "airtime"
+          provider?: "arewabundle" | "bigisub"
+          product_id?: string | null
+          network_name?: string
+          phone?: string
+          amount_kobo?: number
+          status?: "initiated" | "debit_failed" | "debited" | "pending" | "uncertain" | "successful" | "refunded" | "refund_failed"
+          provider_reference?: string | null
+          provider_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "vtu_purchase_attempts_user_id_fkey"; columns: ["user_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+          { foreignKeyName: "vtu_purchase_attempts_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "vtu_products"; referencedColumns: ["id"] }
+        ]
+      }
       welcome_bonus_settings: {
         Row: {
           amount_kobo: number
