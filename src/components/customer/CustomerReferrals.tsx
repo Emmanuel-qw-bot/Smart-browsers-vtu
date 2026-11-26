@@ -38,7 +38,7 @@ export function CustomerReferrals() {
       else toast.warning(result.message);
       setConfirmClaim(false);
       await qc.invalidateQueries({queryKey:["my-referral-dashboard"]});
-    }catch(e){toast.error(e instanceof Error?e.message:"Reward claim failed");}
+    }catch(e){toast.error(e instanceof Error?e.message:"Reward claim failed");setConfirmClaim(false);await qc.invalidateQueries({queryKey:["my-referral-dashboard"]});}
     finally{setBusy(false);}
   }
 
