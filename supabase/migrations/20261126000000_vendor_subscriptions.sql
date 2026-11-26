@@ -107,3 +107,51 @@ with check (
  exists(select 1 from public.vendor_stores s where s.id=store_id and s.owner_id=auth.uid())
  and public.vendor_feature_enabled(auth.uid(),'campaigns')
 );
+
+-- Server-side product limit guard prevents direct API writes from bypassing plans.
+create or replace function public.vendor_active_product_limit(_owner uuid)
+returns integer language sql stable security definer set search_path=public as $$
+ select p.max_active_products
+ from vendor_subscription_plans p
+ where p.plan_key=coalesce((
+   select s.plan_key from vendor_subscriptions s
+   where s.owner_id=_owner and s.status='active' and s.expires_at>now()
+   order by s.expires_at desc limit 1
+ ),'starter')
+ limit 1;
+$$;
+revoke execute on function public.vendor_active_product_limit(uuid) from public,anon;
+grant execute on function public.vendor_active_product_limit(uuid) to authenticated;
+
+create or replace function public.guard_vendor_product_limit()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare product_limit integer; active_count integer;
+begin
+ if new.is_available is not true then return new; end if;
+ product_limit:=vendor_active_product_limit(new.owner_id);
+ if product_limit is null then return new; end if;
+ select count(*) into active_count from vendor_products
+ where owner_id=new.owner_id and store_id=new.store_id and is_available=true
+ and (tg_op='INSERT' or id<>new.id);
+ if active_count>=product_limit then
+   raise exception 'Your plan allows % active products. Upgrade your plan or make another product inactive.',product_limit;
+ end if;
+ return new;
+end $$;
+drop trigger if exists vendor_product_plan_limit on public.vendor_products;
+create trigger vendor_product_plan_limit before insert or update of is_available on public.vendor_products
+for each row execute function public.guard_vendor_product_limit();
+
+-- When a plan expires or its limit is reduced, keep excess products saved but hide them from public listings.
+drop policy if exists "Public view available products" on public.vendor_products;
+create policy "Public view available products within plan limits" on public.vendor_products
+for select using (
+ is_available=true and (
+   public.vendor_active_product_limit(owner_id) is null
+   or (
+     select count(*) from public.vendor_products newer
+     where newer.store_id=vendor_products.store_id and newer.is_available=true
+       and (newer.created_at>vendor_products.created_at or (newer.created_at=vendor_products.created_at and newer.id>vendor_products.id))
+   ) < public.vendor_active_product_limit(owner_id)
+ )
+);
