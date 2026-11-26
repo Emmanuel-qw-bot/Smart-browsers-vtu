@@ -10,7 +10,7 @@ const settingsSchema = z.object({
   maximum_winners: z.number().int().min(1).max(100),
   opens_at: z.string().nullable(),
   closes_at: z.string().nullable(),
-  mtn_network_id:z.string().max(100).nullable().or(z.string().max(100)),mtn_data_plan_id:z.string().max(100),
+  mtn_network_id:z.string().max(100),mtn_data_plan_id:z.string().max(100),
   airtel_network_id:z.string().max(100),airtel_data_plan_id:z.string().max(100),
   glo_network_id:z.string().max(100),glo_data_plan_id:z.string().max(100),
 }).refine((v) => !v.opens_at || !v.closes_at || new Date(v.closes_at) > new Date(v.opens_at), {
