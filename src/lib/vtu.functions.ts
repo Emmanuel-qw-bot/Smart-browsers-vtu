@@ -557,7 +557,7 @@ export const getPendingVtuPurchases = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error: listError } = await supabaseAdmin.from("vtu_purchase_attempts")
       .select("reference,user_id,service,provider,product_id,network_name,phone,amount_kobo,status,provider_reference,provider_message,created_at,updated_at")
-      .in("status", ["debited", "pending", "uncertain", "refund_failed"])
+      .in("status", ["initiated", "debited", "pending", "uncertain", "refund_failed"])
       .order("created_at", { ascending: false }).limit(100);
     if (listError) throw new Error("Could not load pending VTU purchases.");
     return data ?? [];
