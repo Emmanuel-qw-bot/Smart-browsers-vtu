@@ -38,7 +38,7 @@ export const getWeekendRushEligibility=createServerFn({method:"GET"})
   if(settingsError||!settings)throw new Error("Could not load Weekend Rush eligibility.");
   const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
   const db=supabaseAdmin as any;
-  const {count,error}=await db.from("vtu_purchase_attempts").select("id",{count:"exact",head:true}).eq("user_id",context.userId).eq("service","data").eq("status","successful");
+  const {count,error}=await db.from("vtu_purchase_attempts").select("reference",{count:"exact",head:true}).eq("user_id",context.userId).eq("service","data").eq("status","successful");
   if(error)throw new Error("Could not verify your successful data purchases.");
   const campaign=currentCampaignKey(settings.opens_at);
   const {data:claim,error:claimError}=await db.from("weekend_giveaway_claim_details").select("id,status,network,recipient_phone,slot_id,created_at").eq("campaign_key",campaign).eq("user_id",context.userId).maybeSingle();
