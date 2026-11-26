@@ -121,7 +121,7 @@ returns integer language sql stable security definer set search_path=public as $
  limit 1;
 $$;
 revoke execute on function public.vendor_active_product_limit(uuid) from public,anon;
-grant execute on function public.vendor_active_product_limit(uuid) to authenticated;
+grant execute on function public.vendor_active_product_limit(uuid) to anon,authenticated;
 
 create or replace function public.guard_vendor_product_limit()
 returns trigger language plpgsql security definer set search_path=public as $$
