@@ -22,7 +22,7 @@ export function normalizeNigerianPhone(input: string): string | null {
   return /^[789][01]\d{8}$/.test(local) ? `+234${local}` : null;
 }
 
-export const INVITE_CODE_RE = /^SB-[A-Z0-9]{6}$/;
+export const INVITE_CODE_RE = /^SB-[A-Z0-9_]{3,20}$/;
 
 const password = z
   .string()
@@ -34,6 +34,7 @@ const password = z
 export const signupSchema = z
   .object({
     fullName: z.string().trim().min(2, "Enter your full name").max(100),
+    username: z.string().trim().toLowerCase().min(3, "Username must be at least 3 characters").max(20, "Username must be 20 characters or less").regex(/^[a-z0-9_]+$/, "Use only letters, numbers and underscores"),
     email: z.string().trim().email("Enter a valid email").max(255),
     phone: z.string().trim().refine((v) => normalizeNigerianPhone(v) !== null, "Enter a valid Nigerian number, e.g. 08012345678"),
     password,
@@ -61,7 +62,7 @@ export const newPasswordSchema = z
   .refine((d) => d.password === d.confirmPassword, { path: ["confirmPassword"], message: "Passwords don't match" });
 
 export type FormErrors = {
-  [K in "fullName" | "email" | "phone" | "password" | "confirmPassword" | "source" | "sourceOther" | "inviteCode" | "current"]?: string | undefined;
+  [K in "fullName" | "username" | "email" | "phone" | "password" | "confirmPassword" | "source" | "sourceOther" | "inviteCode" | "current"]?: string | undefined;
 };
 
 export function fieldErrors(err: z.ZodError): FormErrors {
