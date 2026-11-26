@@ -1,0 +1,80 @@
+-- Vendor subscriptions: editable plans, subscription ledger and atomic wallet purchase.
+create table if not exists public.vendor_subscription_plans (
+  plan_key text primary key check (plan_key in ('starter','pro','enterprise')),
+  name text not null,
+  description text not null default '',
+  weekly_price_kobo bigint not null default 0 check (weekly_price_kobo>=0),
+  monthly_price_kobo bigint not null default 0 check (monthly_price_kobo>=0),
+  max_active_products integer, -- NULL means unlimited
+  features jsonb not null default '{}'::jsonb,
+  benefits jsonb not null default '[]'::jsonb,
+  enabled boolean not null default true,
+  popular boolean not null default false,
+  grace_days integer not null default 3 check (grace_days between 0 and 30),
+  updated_at timestamptz not null default now(),
+  updated_by uuid
+);
+insert into public.vendor_subscription_plans(plan_key,name,description,weekly_price_kobo,monthly_price_kobo,max_active_products,features,benefits,popular)
+values
+('starter','Starter','Try selling online for free.',0,0,3,
+ '{"verified_badge":false,"custom_branding":false,"remove_branding":false,"flyer_maker":false,"featured_homepage":false,"pin_category":false,"campaigns":false,"analytics":"basic","customer_book":false,"stock_alerts":false,"priority_listing":false}'::jsonb,
+ '["3 active products","Mini shop and shareable product links","Receive orders","Basic receipts","Marketplace listing","Smart Browsers branding"]'::jsonb,false),
+('pro','Pro Seller','Make your shop look professional and grow.',60000,150000,25,
+ '{"verified_badge":true,"custom_branding":true,"remove_branding":true,"flyer_maker":true,"featured_homepage":false,"pin_category":false,"campaigns":false,"analytics":"standard","customer_book":true,"stock_alerts":true,"priority_listing":true}'::jsonb,
+ '["25 active products","Verified Vendor badge","Your logo on receipts","WhatsApp Status flyer maker","Remove Smart Browsers branding","Stock alerts and customer book","Sales tracking"]'::jsonb,true),
+('enterprise','Enterprise','More tools and visibility for bigger sellers.',0,250000,null,
+ '{"verified_badge":true,"custom_branding":true,"remove_branding":true,"flyer_maker":true,"featured_homepage":true,"pin_category":true,"campaigns":true,"analytics":"advanced","customer_book":true,"stock_alerts":true,"priority_listing":true}'::jsonb,
+ '["Unlimited products","Everything in Pro","Homepage featured deals","Pin shop to category top","Flash sales and campaigns","Advanced product views and order analytics"]'::jsonb,false)
+on conflict(plan_key) do nothing;
+alter table public.vendor_subscription_plans enable row level security;
+grant select on public.vendor_subscription_plans to anon,authenticated;
+grant update,insert,delete on public.vendor_subscription_plans to authenticated;
+grant all on public.vendor_subscription_plans to service_role;
+drop policy if exists "Read enabled plans" on public.vendor_subscription_plans;
+create policy "Read enabled plans" on public.vendor_subscription_plans for select using (enabled or public.has_role(auth.uid(),'admin'));
+drop policy if exists "Admins manage plans" on public.vendor_subscription_plans;
+create policy "Admins manage plans" on public.vendor_subscription_plans for all to authenticated using (public.has_role(auth.uid(),'admin')) with check (public.has_role(auth.uid(),'admin'));
+
+create table if not exists public.vendor_subscriptions (
+ id uuid primary key default gen_random_uuid(),
+ owner_id uuid not null references public.profiles(id) on delete cascade,
+ plan_key text not null references public.vendor_subscription_plans(plan_key),
+ status text not null default 'active' check(status in ('active','expired','cancelled','grace')),
+ billing_period text not null check(billing_period in ('weekly','monthly','free','admin_grant')),
+ started_at timestamptz not null default now(),
+ expires_at timestamptz,
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now()
+);
+create index if not exists vendor_subscriptions_owner_idx on public.vendor_subscriptions(owner_id,expires_at desc);
+alter table public.vendor_subscriptions enable row level security;
+grant select on public.vendor_subscriptions to authenticated;
+grant all on public.vendor_subscriptions to service_role;
+drop policy if exists "Vendors read own subscriptions" on public.vendor_subscriptions;
+create policy "Vendors read own subscriptions" on public.vendor_subscriptions for select to authenticated using(owner_id=auth.uid() or public.has_role(auth.uid(),'admin'));
+
+create or replace function public.purchase_vendor_subscription(_plan_key text,_billing_period text)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare p public.vendor_subscription_plans%rowtype; current_sub public.vendor_subscriptions%rowtype; price bigint; days integer; wallet_bal bigint; ref text; sid uuid;
+begin
+ if auth.uid() is null then raise exception 'Sign in to subscribe.'; end if;
+ if _plan_key not in ('pro','enterprise') or _billing_period not in ('weekly','monthly') then raise exception 'Invalid plan or billing option.'; end if;
+ select * into p from vendor_subscription_plans where plan_key=_plan_key and enabled=true;
+ if not found then raise exception 'This plan is not available right now.'; end if;
+ price:=case when _billing_period='weekly' then p.weekly_price_kobo else p.monthly_price_kobo end;
+ if price<=0 then raise exception 'This plan has no payable subscription price.'; end if;
+ select * into current_sub from vendor_subscriptions where owner_id=auth.uid() and status='active' and expires_at>now() order by expires_at desc limit 1;
+ if current_sub.id is not null and current_sub.plan_key=_plan_key then raise exception 'You already have this plan active.'; end if;
+ select balance_kobo into wallet_bal from wallets where user_id=auth.uid() for update;
+ if wallet_bal is null then raise exception 'Wallet not found.'; end if;
+ if wallet_bal<price then raise exception 'Insufficient wallet balance. Please fund your wallet first.'; end if;
+ ref:='vendor-subscription:'||auth.uid()::text||':'||gen_random_uuid()::text;
+ perform wallet_post(auth.uid(),'purchase',-price,ref,'Vendor subscription: '||p.name||' ('||_billing_period||')');
+ days:=case when _billing_period='weekly' then 7 else 30 end;
+ update vendor_subscriptions set status='expired',updated_at=now() where owner_id=auth.uid() and status='active';
+ insert into vendor_subscriptions(owner_id,plan_key,status,billing_period,started_at,expires_at)
+ values(auth.uid(),_plan_key,'active',_billing_period,now(),now()+make_interval(days=>days)) returning id into sid;
+ return jsonb_build_object('subscription_id',sid,'plan',_plan_key,'expires_at',now()+make_interval(days=>days),'charged_kobo',price);
+end $$;
+revoke execute on function public.purchase_vendor_subscription(text,text) from public,anon;
+grant execute on function public.purchase_vendor_subscription(text,text) to authenticated;
