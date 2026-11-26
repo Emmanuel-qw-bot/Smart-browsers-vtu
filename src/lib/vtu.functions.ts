@@ -308,7 +308,8 @@ function normalizePhone(raw: string): string {
     networkId: z.number().int().positive(),
     networkName: z.string().min(1),
     phone: z.string().min(10).max(15),
-    amountNaira: z.number().int().min(50).max(10000)
+    amountNaira: z.number().int().min(50).max(10000),
+    requestId: z.string().uuid(),
   }).parse(input))
   .handler(async ({ data, context }) => {
     const phone = normalizePhone(data.phone);
@@ -354,10 +355,18 @@ function normalizePhone(raw: string): string {
 
     const purchaseRef = `AIR-${crypto.randomUUID()}`;
     const attemptInsert = await supabaseAdmin.from("vtu_purchase_attempts").insert({
-      reference: purchaseRef, user_id: context.userId, service: "airtime", provider: providerSettings.adapter,
+      reference: purchaseRef, request_id: data.requestId, user_id: context.userId, service: "airtime", provider: providerSettings.adapter,
       network_name: normalizeAirtimeNetworkName(data.networkName), phone, amount_kobo: amountKobo, status: "initiated",
     });
-    if (attemptInsert.error) throw new Error("Could not initialize transaction safety record. Your wallet has not been charged.");
+    if (attemptInsert.error) {
+      const existing = await supabaseAdmin.from("vtu_purchase_attempts").select("reference,status,provider_message")
+        .eq("user_id", context.userId).eq("request_id", data.requestId).maybeSingle();
+      if (existing.data) {
+        if (existing.data.status === "successful") return { success: true, message: "This purchase request was already completed. It was not sent again.", reference: existing.data.reference };
+        throw new Error(`This request was already recorded as ${existing.data.status}. Do not retry. Reference: ${existing.data.reference}`);
+      }
+      throw new Error("Could not initialize transaction safety record. Your wallet has not been charged.");
+    }
     const { error: debitError } = await supabaseAdmin.rpc("wallet_post", {
       _user_id: context.userId,
       _category: "purchase",
@@ -645,6 +654,7 @@ export const purchaseData = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({
     productId: z.string().uuid(),
     phone: z.string().min(10).max(15),
+    requestId: z.string().uuid(),
   }).parse(input))
   .handler(async ({ data, context }) => {
     const phone = normalizePhone(data.phone);
@@ -677,10 +687,18 @@ export const purchaseData = createServerFn({ method: "POST" })
     const reference = `DATA-${crypto.randomUUID()}`;
     const price = Number(product.selling_price_kobo);
     const trackingInsert = await supabaseAdmin.from("vtu_purchase_attempts").insert({
-      reference, user_id: context.userId, service: "data", provider: "arewabundle",
+      reference, request_id: data.requestId, user_id: context.userId, service: "data", provider: "arewabundle",
       network_name: product.network_name, phone, amount_kobo: price, product_id: product.id, status: "initiated",
     });
-    if (trackingInsert.error) throw new Error("Could not initialize transaction safety record. Your wallet has not been charged.");
+    if (trackingInsert.error) {
+      const existing = await supabaseAdmin.from("vtu_purchase_attempts").select("reference,status,provider_message")
+        .eq("user_id", context.userId).eq("request_id", data.requestId).maybeSingle();
+      if (existing.data) {
+        if (existing.data.status === "successful") return { success: true, status: "success" as const, reference: existing.data.reference, message: "This data purchase was already completed. It was not sent again." };
+        throw new Error(`This request was already recorded as ${existing.data.status}. Do not retry. Reference: ${existing.data.reference}`);
+      }
+      throw new Error("Could not initialize transaction safety record. Your wallet has not been charged.");
+    }
     const { error: debitError } = await supabaseAdmin.rpc("wallet_post", {
       _user_id: context.userId,
       _category: "purchase",
@@ -771,7 +789,7 @@ export const purchaseData = createServerFn({ method: "POST" })
 
       if (body?.status === "fail") {
         await refundData(body.message ?? `Arewabundle reported failure for ${reference}`);
-        throw new Error(body.message || "Arewabundle reported that the data purchase failed. Your wallet debit was reversed.");
+        throw new Error(`REFUNDED: ${body.message || "Arewabundle reported failure; the wallet refund was verified."}`);
       }
 
       // Any undocumented status, non-JSON response, or HTTP error is ambiguous.
