@@ -253,14 +253,14 @@ export type Database = {
         Relationships: []
       }
       weekend_giveaway_claim_details: {
-        Row: { id: string; campaign_key: string; user_id: string; slot_id: string; network: string | null; recipient_phone: string | null; status: string; created_at: string; updated_at: string }
-        Insert: { id?: string; campaign_key: string; user_id: string; slot_id: string; network?: string | null; recipient_phone?: string | null; status?: string; created_at?: string; updated_at?: string }
-        Update: { id?: string; campaign_key?: string; user_id?: string; slot_id?: string; network?: string | null; recipient_phone?: string | null; status?: string; created_at?: string; updated_at?: string }
+        Row: { id: string; campaign_key: string; user_id: string; slot_id: string; network: string | null; recipient_phone: string | null; network_id:string|null; data_plan_id:string|null; provider_reference:string|null; status: string; created_at: string; updated_at: string }
+        Insert: { id?: string; campaign_key: string; user_id: string; slot_id: string; network?: string | null; recipient_phone?: string | null; network_id?:string|null; data_plan_id?:string|null; provider_reference?:string|null; status?: string; created_at?: string; updated_at?: string }
+        Update: { id?: string; campaign_key?: string; user_id?: string; slot_id?: string; network?: string | null; recipient_phone?: string | null; network_id?:string|null; data_plan_id?:string|null; provider_reference?:string|null; status?: string; created_at?: string; updated_at?: string }
         Relationships: []
       }
       weekend_giveaway_settings: {
-        Row: { id: boolean; enabled: boolean; announcement: string; reward_data_mb: number; minimum_data_purchases: number; maximum_winners: number; opens_at: string | null; closes_at: string | null; updated_at: string; updated_by: string | null }
-        Insert: { id?: boolean; enabled?: boolean; announcement?: string; reward_data_mb?: number; minimum_data_purchases?: number; maximum_winners?: number; opens_at?: string | null; closes_at?: string | null; updated_at?: string; updated_by?: string | null }
+        Row: { id: boolean; enabled: boolean; announcement: string; reward_data_mb: number; minimum_data_purchases: number; maximum_winners: number; opens_at: string | null; closes_at: string | null; mtn_network_id:string|null;mtn_data_plan_id:string|null;airtel_network_id:string|null;airtel_data_plan_id:string|null;glo_network_id:string|null;glo_data_plan_id:string|null; updated_at: string; updated_by: string | null }
+        Insert: { id?: boolean; enabled?: boolean; announcement?: string; reward_data_mb?: number; minimum_data_purchases?: number; maximum_winners?: number; opens_at?: string | null; closes_at?: string | null;mtn_network_id?:string|null;mtn_data_plan_id?:string|null;airtel_network_id?:string|null;airtel_data_plan_id?:string|null;glo_network_id?:string|null;glo_data_plan_id?:string|null; updated_at?: string; updated_by?: string | null }
         Update: { id?: boolean; enabled?: boolean; announcement?: string; reward_data_mb?: number; minimum_data_purchases?: number; maximum_winners?: number; opens_at?: string | null; closes_at?: string | null; updated_at?: string; updated_by?: string | null }
         Relationships: []
       }
