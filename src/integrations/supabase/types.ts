@@ -477,7 +477,7 @@ export type Database = {
       }
       invite_code_is_valid: { Args: { _code: string }; Returns: boolean }
       registration_conflicts: {
-        Args: { _email: string; _phone: string }
+        Args: { _email: string; _phone: string; _username: string }
         Returns: Json
       }
       wallet_post: {
