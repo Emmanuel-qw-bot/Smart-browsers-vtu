@@ -176,7 +176,7 @@ export const testProviderConnection = createServerFn({ method: "POST" })
           ok = response.ok && hasAccessToken(body);
           if (ok) {
             status = "authenticated";
-            const balance = Number(body?.balance);
+            const balance = body?.balance == null ? NaN : Number(body.balance);
             message = Number.isFinite(balance)
               ? `Arewabundle account verified (${body?.username ?? "account"}). Provider wallet balance: ₦${balance.toLocaleString("en-NG", { minimumFractionDigits: 2 })}.`
               : "Arewabundle account verified and access token received.";
@@ -473,7 +473,7 @@ function normalizePhone(raw: string): string {
         await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "uncertain", last_checked_at: new Date().toISOString(), provider_message: body?.message ?? `Uncertain response HTTP ${response.status}` }).eq("reference", purchaseRef);
         throw new Error(`PENDING: Bigisub returned an uncertain result. Do not retry. Reference: ${providerTxnId ?? purchaseRef}`);
       } catch (error) {
-        if (error instanceof Error && (error.message.startsWith("REFUNDED:") || error.message.startsWith("PENDING:"))) throw error;
+        if (error instanceof Error && (error.message.startsWith("REFUNDED:") || error.message.startsWith("PENDING:") || error.message.includes("Refund could not be verified"))) throw error;
         const uncertainty = error instanceof Error ? error.message.slice(0, 300) : "Request outcome uncertain; no provider transaction ID returned";
         await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "uncertain", provider_message: uncertainty, updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
         await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "uncertain", last_checked_at: new Date().toISOString(), provider_message: uncertainty }).eq("reference", purchaseRef);
@@ -515,7 +515,7 @@ function normalizePhone(raw: string): string {
           Accept: "application/json",
         },
         body: JSON.stringify({
-          network: data.networkId,
+          network: serviceMapping.network_id,
           phone,
           plan_type: "VTU",
           bypass: false,
@@ -652,7 +652,10 @@ export const requeryBigisubAirtime = createServerFn({ method: "POST" })
         .select("user_id,category,amount_kobo").eq("reference", `refund:${pending.reference}`).maybeSingle();
       const verified = !refundError && !posted?.error && posted?.data?.user_id === pending.user_id &&
         posted?.data?.category === "refund" && Number(posted?.data?.amount_kobo) === pending.amount_naira * 100;
-      if (!verified) throw new Error("Bigisub confirmed failure, but the customer refund could not be verified. Contact support immediately.");
+      if (!verified) {
+        await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "refund_failed", provider_message: "Bigisub failure confirmed; refund ledger verification failed", updated_at: now }).eq("reference", data.reference);
+        throw new Error("Bigisub confirmed failure, but the customer refund could not be verified. Contact support immediately.");
+      }
       await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "refunded", last_checked_at: now, provider_message: `${message} Customer wallet refund verified.` }).eq("reference", data.reference);
       await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "refunded", provider_message: message, updated_at: now }).eq("reference", data.reference);
       return { status: "refunded", message: `${message} Customer wallet refund verified.` };
@@ -816,7 +819,6 @@ export const purchaseData = createServerFn({ method: "POST" })
           (error.message.startsWith("REFUNDED:") ||
            error.message.includes("wallet debit was reversed") ||
            error.message.includes("status needs review") ||
-           error.message.includes("Refund failed verification") ||
            error.message.includes("Refund failed verification"))) {
         throw error;
       }
