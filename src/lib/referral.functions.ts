@@ -7,6 +7,9 @@ const settingsSchema = z.object({
   required_referrals: z.number().int().min(1).max(100),
   minimum_funding_kobo: z.number().int().min(50000).max(100000000),
   reward_data_mb: z.number().int().min(1000).max(100000).multipleOf(1000),
+  mtn_network_id:z.string().max(100),mtn_data_plan_id:z.string().max(100),
+  airtel_network_id:z.string().max(100),airtel_data_plan_id:z.string().max(100),
+  glo_network_id:z.string().max(100),glo_data_plan_id:z.string().max(100),
 });
 
 export const getMyReferralDashboard = createServerFn({ method: "GET" })
