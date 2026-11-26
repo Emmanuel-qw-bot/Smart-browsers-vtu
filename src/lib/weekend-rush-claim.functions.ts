@@ -34,7 +34,7 @@ function currentCampaignKey(opensAt:string|null){
 export const getWeekendRushEligibility=createServerFn({method:"GET"})
  .middleware([requireSupabaseAuth])
  .handler(async({context})=>{
-  const {data:settings,error:settingsError}=await context.supabase.from("weekend_giveaway_settings").select("enabled,minimum_data_purchases,opens_at,closes_at,maximum_winners,reward_data_mb").eq("id",true).single();
+  const {data:settings,error:settingsError}=await context.supabase.from("weekend_giveaway_settings") .select("enabled,minimum_data_purchases,opens_at,closes_at,maximum_winners,reward_data_mb").eq("id",true).single();
   if(settingsError||!settings)throw new Error("Could not load Weekend Rush eligibility.");
   const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
   const db=supabaseAdmin as any;
