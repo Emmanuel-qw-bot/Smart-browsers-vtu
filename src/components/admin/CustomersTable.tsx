@@ -22,13 +22,12 @@ export function CustomersTable() {
 
   if (isLoading) return <div className="h-40 animate-pulse rounded-2xl bg-card" />;
   if (error) return <FormMessage>Couldn't load customers.</FormMessage>;
-  if (!data?.data.length) return <div className="rounded-2xl bg-card p-8 text-center text-sm text-muted-foreground">No customers have registered yet.</div>;
-  const customers=data.data;
+  const customers=data?.data??[];
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3"><div className="rounded-2xl border bg-card p-4"><p className="text-xs text-muted-foreground">Total registered</p><p className="mt-1 text-2xl font-bold">{data.total.toLocaleString()}</p></div><div className="rounded-2xl border bg-card p-4"><p className="text-xs text-muted-foreground">Joined in last 24 hours</p><p className="mt-1 text-2xl font-bold">{data.newToday.toLocaleString()}</p></div><div className="rounded-2xl border bg-card p-4"><p className="text-xs text-muted-foreground">Latest shown</p><p className="mt-1 text-2xl font-bold">{customers.length}</p></div></div>
-    <div className="overflow-x-auto rounded-2xl bg-card shadow-soft">
+    {customers.length===0?<div className="rounded-2xl bg-card p-8 text-center text-sm text-muted-foreground">No customers have registered yet.</div>:<div className="overflow-x-auto rounded-2xl bg-card shadow-soft">
       <table className="w-full min-w-[720px] text-left text-sm">
         <thead className="bg-muted text-xs text-muted-foreground">
           <tr>{["Full name", "Username", "Email", "Phone", "Referral code", "Source", "Email verified", "Phone verified", "Joined"].map((h, i) => <th key={i} className="px-4 py-3 font-medium">{h}</th>)}</tr>
@@ -49,7 +48,6 @@ export function CustomersTable() {
           ))}
         </tbody>
       </table>
-    </div>
-    </div>
+    </div>}
   );
 }
