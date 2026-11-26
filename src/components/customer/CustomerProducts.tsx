@@ -60,6 +60,7 @@ type Product = {
   const [selectedDataPlan, setSelectedDataPlan] = useState<Product | null>(null);
   const [dataRecipient, setDataRecipient] = useState("");
   const [confirmation, setConfirmation] = useState<"data" | "airtime" | null>(null);
+  const [requestId, setRequestId] = useState<string | null>(null);
 
               const NETWORKS = [
                   { id: 1, name: "MTN", color: "bg-amber-400 text-black border-amber-500" },
@@ -77,16 +78,17 @@ type Product = {
           toast.error("Data purchases are still being tested. Your wallet has not been charged.");
           return;
         }
-        const result = await purchaseData({ data: { productId: selectedDataPlan.id, phone: dataRecipient.trim() } });
+        const result = await purchaseData({ data: { productId: selectedDataPlan.id, phone: dataRecipient.trim(), requestId: requestId ?? crypto.randomUUID() } });
         toast.success(result.message);
         setDataRecipient("");
         setSelectedDataPlan(null);
       } else if (confirmation === "airtime") {
-        const res = await purchaseAirtime({ data: { networkId, networkName, phone: phone.trim(), amountNaira: parseInt(amount, 10) } });
+        const res = await purchaseAirtime({ data: { networkId, networkName, phone: phone.trim(), amountNaira: parseInt(amount, 10), requestId: requestId ?? crypto.randomUUID() } });
         toast.success(res.message);
         setPhone("");
       }
       setConfirmation(null);
+      setRequestId(null);
       await qc.invalidateQueries({ queryKey: ["wallet"] });
       if (confirmation === "data") await qc.invalidateQueries({ queryKey: ["customer-purchase-badges"] });
       await qc.invalidateQueries({ queryKey: ["admin", "ledger"] });
@@ -106,6 +108,7 @@ type Product = {
       toast.error("Enter a valid Nigerian phone number.");
       return;
     }
+    setRequestId(crypto.randomUUID());
     setConfirmation("data");
   }
 
@@ -120,6 +123,7 @@ type Product = {
                                                                         toast.error("Enter a valid Nigerian phone number (e.g. 08012345678).");
                                                                               return;
                                                                                   }
+    setRequestId(crypto.randomUUID());
     setConfirmation("airtime");
   }
                                                                                                                                                             
@@ -295,7 +299,7 @@ type Product = {
               <p className="mt-1">Airtime or data sent to a wrong number may not be recoverable. Smart Browsers cannot guarantee reversal of an incorrect recipient number.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <button type="button" disabled={submitting} onClick={() => setConfirmation(null)} className="rounded-xl border px-4 py-3 font-medium disabled:opacity-50">Cancel</button>
+              <button type="button" disabled={submitting} onClick={() => { setConfirmation(null); setRequestId(null); }} className="rounded-xl border px-4 py-3 font-medium disabled:opacity-50">Cancel</button>
               <button type="button" disabled={submitting || (confirmation === "data" && !purchasesAvailable)} onClick={confirmPurchase} className="rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{submitting ? "Processing…" : confirmation === "data" && !purchasesAvailable ? "Unavailable" : "Confirm & Pay"}</button>
             </div>
           </div>
