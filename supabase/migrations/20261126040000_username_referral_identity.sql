@@ -22,9 +22,6 @@ END $$;
 ALTER TABLE public.profiles ALTER COLUMN username SET NOT NULL;
 ALTER TABLE public.profiles ADD CONSTRAINT username_format CHECK (username ~ '^[a-zA-Z0-9_]{3,20}$');
 CREATE UNIQUE INDEX IF NOT EXISTS profiles_username_lower_unique ON public.profiles(lower(username));
-ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS invite_code_format;
-ALTER TABLE public.profiles ADD CONSTRAINT invite_code_format CHECK (invite_code ~ '^SB-[A-Z0-9_]{3,20}$');
-
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $signup_fn$
 DECLARE
@@ -51,7 +48,7 @@ BEGIN
     IF v_ref IS NULL THEN RAISE EXCEPTION 'Invitation code not found'; END IF;
     IF EXISTS (SELECT 1 FROM public.profiles WHERE id=v_ref AND (phone=v_phone OR lower(email)=lower(NEW.email))) THEN RAISE EXCEPTION 'Self referral is not allowed'; END IF;
   END IF;
-  v_invite := 'SB-'||upper(v_username);
+  v_invite := public.generate_invite_code();
   INSERT INTO public.profiles(id,full_name,username,email,phone,invite_code,referred_by,registration_source,registration_source_other,email_verified)
   VALUES(NEW.id,v_name,v_username,lower(NEW.email),v_phone,v_invite,v_ref,v_source::public.registration_source,v_other,NEW.email_confirmed_at IS NOT NULL);
   INSERT INTO public.user_roles(user_id,role) VALUES(NEW.id,'customer');
