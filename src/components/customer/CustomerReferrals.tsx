@@ -16,6 +16,7 @@ export function CustomerReferrals() {
   const [network,setNetwork]=useState<(typeof networks)[number]>("MTN");
   const [phone,setPhone]=useState("");
   const [successReward,setSuccessReward]=useState<any>(null);
+  const [confirmClaim,setConfirmClaim]=useState(false);
   const [busy,setBusy]=useState(false);
   const d:any=dash.data;
   const mappingList:any[]=plans.data??[];
@@ -27,12 +28,15 @@ export function CustomerReferrals() {
   async function submit(){
     if(!configured){toast.error("This reward network is not configured. Choose another network or contact support.");return;}
     if(!/^0[789][01]\d{8}$/.test(phone)){toast.error("Enter a valid 11-digit Nigerian phone number.");return;}
-    if(!confirm("Claim your referral data reward?\n\nNetwork: "+network+"\nPhone: "+phone+"\nReward size: "+(d.reward_data_mb/1000)+"GB\nThis will send free data to this phone number."))return;
+    setConfirmClaim(true);
+  }
+  async function sendReward(){
     setBusy(true);
     try{
       const result=await claim({data:{network,phone}});
       if(result.status==="delivered")setSuccessReward({network,phone,gb:d.reward_data_mb/1000,claimId:result.claimId});
       else toast.warning(result.message);
+      setConfirmClaim(false);
       await qc.invalidateQueries({queryKey:["my-referral-dashboard"]});
     }catch(e){toast.error(e instanceof Error?e.message:"Reward claim failed");}
     finally{setBusy(false);}
@@ -68,7 +72,7 @@ export function CustomerReferrals() {
           <label className="block text-sm">Network<select className="mt-1 w-full rounded-xl border border-violet-200 bg-white p-3 focus:border-violet-500 focus:outline-none dark:border-violet-900/50 dark:bg-background" value={network} onChange={e=>setNetwork(e.target.value as any)}>{networks.map(n=><option key={n} disabled={!mappingList.find(m=>m.network===n)?.configured}>{n}{!mappingList.find(m=>m.network===n)?.configured?" (not configured)":""}</option>)}</select></label>
           <label className="block text-sm">Recipient phone number<input inputMode="numeric" className="mt-1 w-full rounded-xl border border-violet-200 bg-white p-3 focus:border-violet-500 focus:outline-none dark:border-violet-900/50 dark:bg-background" placeholder="08012345678" value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,"").slice(0,11))}/></label>
           <p className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/20 dark:text-amber-200">Check the phone number carefully. If you claim the reward for a wrong number, it may not be recoverable.</p>
-          <button disabled={busy||!configured||plans.isLoading} onClick={submit} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-700 to-indigo-700 px-4 py-3 font-semibold text-white shadow-md shadow-violet-900/15 transition hover:brightness-110 disabled:opacity-50">{busy?<Loader2 className="size-4 animate-spin"/>:"Claim reward"}</button>
+          {!confirmClaim?<button disabled={busy||!configured||plans.isLoading} onClick={submit} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-700 to-indigo-700 px-4 py-3 font-semibold text-white shadow-md shadow-violet-900/15 transition hover:brightness-110 disabled:opacity-50">{busy?<Loader2 className="size-4 animate-spin"/>:"Continue"}</button>:<div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:bg-amber-950/20 dark:text-amber-100"><h4 className="font-semibold">Confirm reward details</h4><p className="text-sm">Reward: {d.reward_data_mb/1000}GB · Network: {network} · Phone: {phone}</p><p className="text-xs">Please double-check the recipient number. Data sent to a wrong number may not be recoverable. This claim will use your qualifying referrals and will not charge your wallet.</p><button disabled={busy} onClick={sendReward} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{busy?<Loader2 className="size-4 animate-spin"/>:"Claim "+(d.reward_data_mb/1000)+"GB reward"}</button><button disabled={busy} onClick={()=>setConfirmClaim(false)} className="w-full rounded-xl border px-4 py-2 text-sm">Go back and edit</button></div>}
           <p className="text-xs text-muted-foreground">The reward is free; your wallet will not be charged. If delivery is pending or uncertain, do not retry until it is reconciled.</p>
         </div>}
     </section>
