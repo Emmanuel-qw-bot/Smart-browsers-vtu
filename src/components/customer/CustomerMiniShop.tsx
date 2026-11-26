@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";\nimport { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { Link } from "@tanstack/react-router";
 import { Store, Package, ReceiptText, Plus, Trash2, Pencil, Share2, Loader2, CheckCircle2, Search, ShoppingBag, MapPin, ArrowLeft, MessageCircle, Tag, Copy, ExternalLink, Megaphone, CalendarClock, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
