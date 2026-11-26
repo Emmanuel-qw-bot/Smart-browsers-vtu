@@ -487,6 +487,7 @@ function normalizePhone(raw: string): string {
       await refund("Arewabundle credentials missing before request");
       throw new Error("Arewabundle is not configured. Wallet debit was reversed.");
     }
+    let airtimeProviderPurchaseRequestSent = false;
     try {
       const authRes = await fetch("https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user", {
         method: "POST",
@@ -503,6 +504,7 @@ function normalizePhone(raw: string): string {
         await refund("Arewabundle authentication failed before airtime request");
         throw new Error("REFUNDED: Could not authenticate with Arewabundle. Wallet debit was reversed.");
       }
+      airtimeProviderPurchaseRequestSent = true;
       const response = await fetch("https://api.arewabundle.com.ng/api/topup", {
         method: "POST",
         redirect: "error",
@@ -533,7 +535,11 @@ function normalizePhone(raw: string): string {
       await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "uncertain", provider_message: body?.message ?? `HTTP ${response.status} / undocumented status`, updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
       throw new Error(`PENDING: Provider response uncertain. Do not retry. Reference: ${purchaseRef}`);
     } catch (error) {
-      if (error instanceof Error && (error.message.startsWith("REFUNDED:") || error.message.startsWith("PENDING:"))) throw error;
+      if (error instanceof Error && (error.message.startsWith("REFUNDED:") || error.message.startsWith("PENDING:") || error.message.includes("Refund could not be verified"))) throw error;
+      if (!airtimeProviderPurchaseRequestSent) {
+        await refund("Provider authentication failed before airtime request was sent");
+        throw new Error("REFUNDED: Provider authentication did not complete. Wallet refund verified.");
+      }
       await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "uncertain", provider_message: error instanceof Error ? error.message.slice(0, 300) : "Unknown outcome", updated_at: new Date().toISOString() }).eq("reference", purchaseRef);
       throw new Error(`PENDING: Airtime outcome uncertain. Wallet not automatically refunded. Do not retry. Reference: ${purchaseRef}`);
     }
@@ -742,6 +748,7 @@ export const purchaseData = createServerFn({ method: "POST" })
       throw new Error("Provider connection is unavailable. The wallet debit was reversed.");
     }
 
+    let dataProviderPurchaseRequestSent = false;
     try {
       const authResponse = await fetch(
         "https://connector-gateway.lovable.dev/udc_arewabundle_account/api/user",
@@ -763,6 +770,7 @@ export const purchaseData = createServerFn({ method: "POST" })
       }
 
       const token = (authBody as { AccessToken: string }).AccessToken;
+      dataProviderPurchaseRequestSent = true;
       const response = await fetch("https://api.arewabundle.com.ng/api/data", {
         method: "POST",
         redirect: "error",
@@ -808,8 +816,13 @@ export const purchaseData = createServerFn({ method: "POST" })
           (error.message.startsWith("REFUNDED:") ||
            error.message.includes("wallet debit was reversed") ||
            error.message.includes("status needs review") ||
+           error.message.includes("Refund failed verification") ||
            error.message.includes("Refund failed verification"))) {
         throw error;
+      }
+      if (!dataProviderPurchaseRequestSent) {
+        await refundData("Provider authentication did not complete before data request");
+        throw new Error("REFUNDED: Provider authentication failed before data request. Wallet refund verified.");
       }
       await supabaseAdmin.from("vtu_purchase_attempts").update({ status: "uncertain", provider_message: error instanceof Error ? error.message.slice(0, 300) : "Unknown provider outcome", updated_at: new Date().toISOString() }).eq("reference", reference);
       throw new Error(`The provider response is uncertain. Do not retry yet. Contact support with reference: ${reference}`);
