@@ -238,3 +238,47 @@ begin
 end $$;
 revoke execute on function public.admin_refresh_vendor_subscription_expiry() from public,anon;
 grant execute on function public.admin_refresh_vendor_subscription_expiry() to authenticated;
+
+-- Grace-period-aware plan resolution. Vendors keep their paid entitlements briefly after expiry.
+create or replace function public.vendor_current_plan_key(_owner uuid)
+returns text language sql stable security definer set search_path=public as $$
+ select s.plan_key
+ from vendor_subscriptions s join vendor_subscription_plans p on p.plan_key=s.plan_key
+ where s.owner_id=_owner and s.status in ('active','grace')
+ and s.expires_at is not null
+ and now()<=s.expires_at+make_interval(days=>p.grace_days)
+ order by s.expires_at desc limit 1;
+$$;
+revoke execute on function public.vendor_current_plan_key(uuid) from public;
+grant execute on function public.vendor_current_plan_key(uuid) to anon,authenticated;
+
+create or replace function public.vendor_feature_enabled(_owner uuid,_feature text)
+returns boolean language sql stable security definer set search_path=public as $$
+ select coalesce((p.features->>_feature)::boolean,false)
+ from vendor_subscription_plans p
+ where p.plan_key=coalesce(public.vendor_current_plan_key(_owner),'starter')
+ limit 1;
+$$;
+
+create or replace function public.vendor_active_product_limit(_owner uuid)
+returns integer language sql stable security definer set search_path=public as $$
+ select p.max_active_products from vendor_subscription_plans p
+ where p.plan_key=coalesce(public.vendor_current_plan_key(_owner),'starter') limit 1;
+$$;
+
+create or replace function public.admin_refresh_vendor_subscription_expiry()
+returns integer language plpgsql security definer set search_path=public as $$
+declare n integer;
+begin
+ if auth.uid() is null or not public.has_role(auth.uid(),'admin') then raise exception 'Admin access required.'; end if;
+ update vendor_subscriptions s set status='grace',updated_at=now()
+ from vendor_subscription_plans p
+ where s.plan_key=p.plan_key and s.status='active' and s.expires_at<=now()
+ and s.expires_at+make_interval(days=>p.grace_days)>now();
+ update vendor_subscriptions s set status='expired',updated_at=now()
+ from vendor_subscription_plans p
+ where s.plan_key=p.plan_key and s.status in ('active','grace')
+ and s.expires_at+make_interval(days=>p.grace_days)<=now();
+ get diagnostics n=row_count;
+ return n;
+end $$;
