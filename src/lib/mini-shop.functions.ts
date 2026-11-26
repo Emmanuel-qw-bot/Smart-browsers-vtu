@@ -57,6 +57,17 @@ export const saveMiniShopProduct=createServerFn({method:"POST"}).middleware([req
   const db=context.supabase as any;
   const {data:store,error:storeError}=await db.from("vendor_stores").select("id").eq("owner_id",context.userId).single();
   if(storeError||!store)throw new Error("Set up your shop profile before adding products.");
+  const {data:activeSubscription}=await db.from("vendor_subscriptions").select("plan_key").eq("owner_id",context.userId).eq("status","active").gt("expires_at",new Date().toISOString()).order("expires_at",{ascending:false}).limit(1).maybeSingle();
+  const planKey=activeSubscription?.plan_key??"starter";
+  const {data:plan}=await db.from("vendor_subscription_plans").select("max_active_products").eq("plan_key",planKey).single();
+  const limit=plan?.max_active_products??null;
+  if(data.is_available&&limit!==null){
+    let countQuery=db.from("vendor_products").select("id",{count:"exact",head:true}).eq("owner_id",context.userId).eq("store_id",store.id).eq("is_available",true);
+    if(data.id)countQuery=countQuery.neq("id",data.id);
+    const {count,error:countError}=await countQuery;
+    if(countError)throw new Error("Could not check your product limit.");
+    if((count??0)>=limit)throw new Error(`Your ${planKey} plan allows ${limit} active products. Upgrade your plan to list more.`);
+  }
   const payload={...data,owner_id:context.userId,store_id:store.id,updated_at:new Date().toISOString()};
   const query=data.id?db.from("vendor_products").update(payload).eq("id",data.id).eq("owner_id",context.userId):db.from("vendor_products").insert(payload);
   const {error}=await query;
