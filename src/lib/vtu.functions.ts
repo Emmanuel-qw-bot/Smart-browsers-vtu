@@ -172,9 +172,21 @@ export const testProviderConnection = createServerFn({ method: "POST" })
               Accept: "application/json",
             },
           });
-          ok = response.ok && hasAccessToken(await response.json());
-          message = ok ? "Arewabundle account authentication passed." : `Authentication failed (HTTP ${response.status}).`;
-          if (ok) status = "authenticated";
+          const body = (await response.json().catch(() => null)) as {
+            AccessToken?: string;
+            balance?: string | number;
+            username?: string;
+          } | null;
+          ok = response.ok && hasAccessToken(body);
+          if (ok) {
+            status = "authenticated";
+            const balance = Number(body?.balance);
+            message = Number.isFinite(balance)
+              ? `Arewabundle account verified (${body?.username ?? "account"}). Provider wallet balance: ₦${balance.toLocaleString("en-NG", { minimumFractionDigits: 2 })}.`
+              : "Arewabundle account verified and access token received.";
+          } else {
+            message = `Authentication failed (HTTP ${response.status}).`;
+          }
         } catch {
           message = "Arewabundle authentication could not be completed.";
         }
@@ -221,7 +233,12 @@ export const testProviderConnection = createServerFn({ method: "POST" })
       connection_status: status,
       last_checked_at: now,
       last_error: ok ? null : message,
-      ...(ok ? { last_authenticated_at: now, enabled: true, airtime_enabled: provider?.adapter === "bigisub" } : {}),
+      ...(ok ? {
+        last_authenticated_at: now,
+        enabled: true,
+        airtime_enabled: provider?.adapter === "bigisub",
+        data_enabled: provider?.adapter === "arewabundle",
+      } : {}),
     }).eq("id", data.id);
 
     return { ok, message };
