@@ -8,6 +8,7 @@ const storeSchema=z.object({
   tagline:z.string().max(140).default(""),
   whatsapp_phone:z.string().max(30).default(""),
   pickup_delivery_note:z.string().max(500).default(""),
+  logo_url:z.string().url().max(2000).nullable().optional(),
 });
 const productSchema=z.object({
   id:z.string().uuid().optional(),
@@ -43,6 +44,7 @@ export const getMyMiniShop=createServerFn({method:"GET"}).middleware([requireSup
 
 export const saveMiniShopStore=createServerFn({method:"POST"}).middleware([requireSupabaseAuth]).inputValidator((input)=>storeSchema.parse(input)).handler(async({data,context})=>{
   const db=context.supabase as any;
+  if(data.logo_url){const {data:planKey}=await db.rpc("vendor_current_plan_key",{_owner:context.userId});const key=planKey??"starter";const {data:plan,error:planError}=await db.from("vendor_subscription_plans").select("features").eq("plan_key",key).single();if(planError||!plan?.features?.custom_branding)throw new Error("Custom shop logo is a Pro feature. Upgrade to add your logo.");}
   const {data:existing}=await db.from("vendor_stores").select("id").eq("owner_id",context.userId).maybeSingle();
   const payload={...data,owner_id:context.userId,updated_at:new Date().toISOString()};
   const {data:store,error}=await db.from("vendor_stores").upsert(payload,{onConflict:"owner_id"}).select("*").single();
