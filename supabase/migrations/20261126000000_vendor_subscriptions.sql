@@ -78,3 +78,32 @@ begin
 end $$;
 revoke execute on function public.purchase_vendor_subscription(text,text) from public,anon;
 grant execute on function public.purchase_vendor_subscription(text,text) to authenticated;
+
+-- Feature entitlements are checked server-side, not only hidden in the UI.
+create or replace function public.vendor_feature_enabled(_owner uuid,_feature text)
+returns boolean language sql stable security definer set search_path=public as $$
+ select coalesce((p.features->>_feature)::boolean,false)
+ from vendor_subscription_plans p
+ where p.plan_key=(
+   select s.plan_key from vendor_subscriptions s
+   where s.owner_id=_owner and s.status='active' and s.expires_at>now()
+   order by s.expires_at desc limit 1
+ )
+ union all
+ select coalesce((p.features->>_feature)::boolean,false)
+ from vendor_subscription_plans p
+ where p.plan_key='starter'
+ and not exists(select 1 from vendor_subscriptions s where s.owner_id=_owner and s.status='active' and s.expires_at>now())
+ limit 1;
+$$;
+revoke execute on function public.vendor_feature_enabled(uuid,text) from public,anon;
+grant execute on function public.vendor_feature_enabled(uuid,text) to authenticated;
+
+drop policy if exists "Owners manage campaigns for their store" on public.vendor_product_campaigns;
+create policy "Owners manage campaigns for their store" on public.vendor_product_campaigns
+for all to authenticated
+using (exists(select 1 from public.vendor_stores s where s.id=store_id and s.owner_id=auth.uid()))
+with check (
+ exists(select 1 from public.vendor_stores s where s.id=store_id and s.owner_id=auth.uid())
+ and public.vendor_feature_enabled(auth.uid(),'campaigns')
+);
