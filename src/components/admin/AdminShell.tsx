@@ -13,7 +13,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const countsFn=useServerFn(getAdminNavigationCounts);
   const countsQuery=useQuery({queryKey:["admin","navigation-counts"],queryFn:()=>countsFn(),refetchInterval:60000});
-  const counts=countsQuery.data??{} as Record<string,number>;
+  const counts:Record<string,number>=countsQuery.data??{};
   const badges:Record<string,number>={customers:counts.customers??0,transactions:counts.transactions??0,"referral-settings":counts.referralClaims??0,"weekend-giveaways":counts.weekendClaims??0,"airtime-cash":counts.airtimeCash??0,"vendor-subscriptions":counts.vendorSubscriptions??0};
 
   const Sidebar = () => (
