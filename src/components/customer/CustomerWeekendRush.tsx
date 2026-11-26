@@ -41,6 +41,7 @@ export function CustomerWeekendRush() {
   const [confirmed, setConfirmed] = useState(false);
   const [successReward,setSuccessReward]=useState<any>(null);
   const [deliveryStatus,setDeliveryStatus]=useState<string|null>(null);
+  useEffect(()=>{const choices=[["MTN",data.mtn_network_id,data.mtn_data_plan_id],["Airtel",data.airtel_network_id,data.airtel_data_plan_id],["Glo",data.glo_network_id,data.glo_data_plan_id]];if(!choices.some(([n,net,plan])=>n===network&&net&&plan)){const first=choices.find(([,net,plan])=>net&&plan)?.[0];if(first)setNetwork(first as "MTN"|"Airtel"|"Glo");}},[data,network]);
   const savedClaim=eligibilityQuery.data?.claim;
   const activeClaimSlot=claimedSlot??savedClaim?.slot_number??null;
   useEffect(()=>{if(savedClaim?.network)setNetwork(savedClaim.network as "MTN"|"Airtel"|"Glo");if(savedClaim?.recipient_phone)setPhone(savedClaim.recipient_phone);if(savedClaim?.status==="details_confirmed"||savedClaim?.status==="fulfilment_pending"||savedClaim?.status==="fulfilled"||savedClaim?.status==="manual_review"||savedClaim?.status==="failed")setConfirmed(true);if(savedClaim?.status)setDeliveryStatus(savedClaim.status);if(savedClaim?.status==="fulfilled")setSuccessReward({network:savedClaim.network,phone:savedClaim.recipient_phone,claimId:savedClaim.id,username:eligibilityQuery.data?.username,gb:(eligibilityQuery.data?.reward_data_mb??1024)/1024});},[savedClaim]);
