@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { queryOptions, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Save, Gift, Clock } from "lucide-react";
 import { toast } from "sonner";
@@ -79,7 +79,7 @@ export function WeekendGiveawaySettings() {
         <p className="mt-3 text-xs text-muted-foreground">Your agreed starting rules are 1 GB, at least 10 successful data purchases, and 10 winners.</p>
       </section>
       <section className="rounded-2xl border bg-card p-4 sm:p-6">
-        <h2 className="mb-3 font-display text-lg font-semibold">Reward plan mapping</h2><p className="mb-3 text-xs text-muted-foreground">Enter the Arewabundle network ID and plan ID for each network. These are used only for free reward delivery, not normal purchases. Leave 9mobile unsupported.</p>
+        <h2 className="mb-3 font-display text-lg font-semibold">Reward plan mapping</h2><p className="mb-3 text-xs text-muted-foreground">Enter the Arewabundle network ID and plan ID for each network. Verify that each plan ID matches the reward size configured above. These IDs are used only for free rewards, not normal purchases. 9mobile is unsupported.</p>
         <div className="space-y-3">{(["mtn","airtel","glo"] as const).map((n)=>{const label=n==="mtn"?"MTN":n==="airtel"?"Airtel":"Glo";return <div key={n} className="grid gap-2 rounded-xl border p-3 sm:grid-cols-2"><strong className="sm:col-span-2">{label}</strong><label className="text-sm">Network ID<Input value={maps[n+"_network_id"]} onChange={e=>setMaps({...maps,[n+"_network_id"]:e.target.value})} /></label><label className="text-sm">Data plan ID<Input value={maps[n+"_data_plan_id"]} onChange={e=>setMaps({...maps,[n+"_data_plan_id"]:e.target.value})} /></label></div>})}</div>
       </section>
       <section className="rounded-2xl border bg-card p-4 sm:p-6">
