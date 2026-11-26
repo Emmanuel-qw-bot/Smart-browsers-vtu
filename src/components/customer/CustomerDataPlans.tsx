@@ -31,6 +31,7 @@ export function CustomerDataPlans() {
   const [recipientPhone, setRecipientPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [requestId, setRequestId] = useState<string | null>(null);
 
   function handlePurchase() {
     if (!selected) return;
@@ -39,6 +40,7 @@ export function CustomerDataPlans() {
       toast.error("Enter a valid Nigerian phone number (e.g. 08012345678).");
       return;
     }
+    setRequestId(crypto.randomUUID());
     setConfirmationOpen(true);
   }
 
@@ -46,10 +48,11 @@ export function CustomerDataPlans() {
     if (!selected || !confirmationOpen || submitting) return;
     setSubmitting(true);
     try {
-      const res = await purchaseData({ data: { productId: selected.id, phone: recipientPhone.trim() } });
+      const res = await purchaseData({ data: { productId: selected.id, phone: recipientPhone.trim(), requestId: requestId ?? crypto.randomUUID() } });
       toast.success(res.message);
       setRecipientPhone("");
       setConfirmationOpen(false);
+      setRequestId(null);
       await qc.invalidateQueries({ queryKey: ["wallet"] });
       await qc.invalidateQueries({ queryKey: ["customer-purchase-badges"] });
     } catch (err) {
@@ -210,7 +213,7 @@ export function CustomerDataPlans() {
               <p className="mt-1">Data sent to a wrong number may not be recoverable. Smart Browsers cannot guarantee reversal of an incorrect recipient number.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <button type="button" disabled={submitting} onClick={() => setConfirmationOpen(false)} className="rounded-xl border px-4 py-3 font-medium disabled:opacity-50">Cancel</button>
+              <button type="button" disabled={submitting} onClick={() => { setConfirmationOpen(false); setRequestId(null); }} className="rounded-xl border px-4 py-3 font-medium disabled:opacity-50">Cancel</button>
               <button type="button" disabled={submitting} onClick={confirmPurchase} className="rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{submitting ? "Processing..." : `Confirm & Pay ${formatPrice(selected.selling_price_kobo)}`}</button>
             </div>
           </div>
