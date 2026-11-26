@@ -22,7 +22,7 @@ export function normalizeNigerianPhone(input: string): string | null {
   return /^[789][01]\d{8}$/.test(local) ? `+234${local}` : null;
 }
 
-export const INVITE_CODE_RE = /^SB-[A-Z0-9_]{3,20}$/;
+export const INVITE_CODE_RE = /^SB-[A-Z0-9]{6}$/;
 
 const password = z
   .string()
