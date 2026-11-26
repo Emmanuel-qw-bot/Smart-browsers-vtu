@@ -51,7 +51,7 @@ export const adminNav: NavItem[] = [
   { slug: "reports", label: "Reports and Profit Analysis", icon: LineChart, description: "Revenue, cost and profit reporting." },
   { slug: "support-settings", label: "Support Settings", icon: Headphones, description: "Support channels, hours and contact details." },
   { slug: "airtime-cash", label: "Airtime-to-Cash Requests", icon: ArrowLeftRight, description: "Configure conversion rates and verify customer requests." },
-  { slug: "platform-settings", label: "Platform Settings", icon: Settings, description: "General platform configuration." },
+  { slug: "vendor-subscriptions", label: "Vendor Subscriptions", icon: Crown, description: "Manage Starter, Pro and Enterprise plan prices and features." },\n  { slug: "platform-settings", label: "Platform Settings", icon: Settings, description: "General platform configuration." },
 ];
 
 export const findNav = (items: NavItem[], slug: string) => items.find((i) => i.slug === slug);
