@@ -6,7 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { claimWeekendRushSlot, getWeekendRushSlots, saveWeekendRushRecipient } from "@/lib/weekend-rush-claim.functions";
+import { claimWeekendRushSlot, getWeekendRushSlots, getWeekendRushEligibility, saveWeekendRushRecipient } from "@/lib/weekend-rush-claim.functions";
 import { getWeekendGiveawaySettings } from "@/lib/weekend-giveaway.functions";
 
 export const customerWeekendRushQuery = queryOptions({
@@ -29,7 +29,8 @@ export function CustomerWeekendRush() {
   const { data } = useSuspenseQuery(customerWeekendRushQuery);
   const [now, setNow] = useState(() => Date.now());
   const client = useQueryClient();
-  const slotsQuery = useQuery({ queryKey: ["customer", "weekend-rush-slots"], queryFn: () => getWeekendRushSlots(), enabled: data.enabled });
+  const slotsQuery = useQuery({ queryKey: ["customer", "weekend-rush-slots"], queryFn: () => getWeekendRushSlots(), enabled: data.enabled, refetchInterval: 15000 });
+  const eligibilityQuery=useQuery({queryKey:["customer","weekend-rush-eligibility"],queryFn:()=>getWeekendRushEligibility(),refetchInterval:15000});
   const claim = useServerFn(claimWeekendRushSlot);
   const saveRecipient = useServerFn(saveWeekendRushRecipient);
   const [busy, setBusy] = useState(false);
@@ -37,6 +38,9 @@ export function CustomerWeekendRush() {
   const [network, setNetwork] = useState<"MTN"|"Airtel"|"Glo">("MTN");
   const [phone, setPhone] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const savedClaim=eligibilityQuery.data?.claim;
+  const activeClaimSlot=claimedSlot??savedClaim?.slot_number??null;
+  useEffect(()=>{if(savedClaim?.network)setNetwork(savedClaim.network as "MTN"|"Airtel"|"Glo");if(savedClaim?.recipient_phone)setPhone(savedClaim.recipient_phone);if(savedClaim?.status==="details_confirmed"||savedClaim?.status==="fulfilment_pending"||savedClaim?.status==="fulfilled")setConfirmed(true);},[savedClaim]);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -46,7 +50,7 @@ export function CustomerWeekendRush() {
   const open = data.enabled && (!opens || now >= opens) && (!closes || now <= closes);
   const nextTarget = opens && now < opens ? data.opens_at : data.closes_at;
   const label = opens && now < opens ? "Applications open in" : "Applications close in";
-  async function apply() { setBusy(true); try { const result = await claim(); setClaimedSlot(result.slot_number); await client.invalidateQueries({ queryKey: ["customer", "weekend-rush-slots"] }); toast.success("Congratulations! You have secured a Weekend Rush slot."); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not claim a slot."); } finally { setBusy(false); } }
+  async function apply() { setBusy(true); try { const result = await claim(); setClaimedSlot(result.slot_number); await Promise.all([client.invalidateQueries({ queryKey: ["customer", "weekend-rush-slots"] }),client.invalidateQueries({queryKey:["customer","weekend-rush-eligibility"]})]); toast.success("Congratulations! You have secured a Weekend Rush slot."); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not claim a slot."); } finally { setBusy(false); } }
   async function confirmReward() { setBusy(true); try { await saveRecipient({ data: { network, phone } }); setConfirmed(true); toast.success("Reward details saved. Delivery is not yet connected."); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not save recipient details."); } finally { setBusy(false); } }
 
   return (
@@ -79,17 +83,18 @@ export function CustomerWeekendRush() {
               return <div key={i + 1} className={"flex items-center justify-between rounded-xl border p-3 " + (taken ? "bg-muted text-muted-foreground" : "bg-card")}><strong>Slot {i + 1}</strong>{taken ? <span className="flex items-center gap-1 text-xs"><CheckCircle2 className="size-4" /> Claimed</span> : <span className="flex items-center gap-1 text-xs text-primary"><Circle className="size-4" /> Available</span>}</div>;
             })}
           </div>
-          {open && !claimedSlot && <Button className="w-full" onClick={apply} disabled={busy || slotsQuery.isLoading}>{busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}APPLY NOW</Button>}
-          {claimedSlot && !confirmed && <div className="space-y-3 rounded-2xl border border-primary/30 bg-card p-4">
-            <div className="text-center"><Gift className="mx-auto size-8 text-primary" /><h3 className="mt-2 font-display text-xl font-bold">Congratulations!</h3><p className="text-sm text-muted-foreground">You secured Slot {claimedSlot}. Claim your free data reward.</p></div>
+          {eligibilityQuery.data&&<div className="rounded-xl border bg-muted/50 p-3 text-sm"><div className="flex items-center justify-between gap-2"><strong>Your eligibility</strong><span className={eligibilityQuery.data.eligible?"text-emerald-600":"text-muted-foreground"}>{eligibilityQuery.data.eligible?"Qualified":"Not yet qualified"}</span></div><p className="mt-1">Successful data purchases: <strong>{eligibilityQuery.data.successful_data_purchases}/{eligibilityQuery.data.minimum_data_purchases}</strong></p>{!eligibilityQuery.data.eligible&&<p className="mt-1 text-xs text-muted-foreground">You need {Math.max(0,eligibilityQuery.data.minimum_data_purchases-eligibilityQuery.data.successful_data_purchases)} more successful data purchase(s). Only provider-confirmed successful data purchases count. Airtime, failed, pending and refunded purchases do not count.</p>}</div>}
+          {open && eligibilityQuery.data?.eligible && !activeClaimSlot && <Button className="w-full" onClick={apply} disabled={busy || slotsQuery.isLoading || eligibilityQuery.isLoading}>{busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}APPLY NOW</Button>}
+          {activeClaimSlot && !confirmed && <div className="space-y-3 rounded-2xl border border-primary/30 bg-card p-4">
+            <div className="text-center"><Gift className="mx-auto size-8 text-primary" /><h3 className="mt-2 font-display text-xl font-bold">Congratulations!</h3><p className="text-sm text-muted-foreground">You secured Slot {activeClaimSlot}. Claim your free data reward.</p></div>
             <label className="block space-y-1 text-sm font-medium">Network<select className="w-full rounded-xl border bg-background p-3" value={network} onChange={e => setNetwork(e.target.value as "MTN"|"Airtel"|"Glo")}><option>MTN</option><option>Airtel</option><option>Glo</option></select></label>
             <label className="block space-y-1 text-sm font-medium">Phone number<Input inputMode="tel" placeholder="08012345678" value={phone} onChange={e => setPhone(e.target.value)} /></label>
             <p className="text-xs text-destructive">Please confirm the phone number carefully. Smart Browsers will not be responsible for rewards sent to an incorrect number.</p>
             <Button className="w-full" onClick={() => setConfirmed(true)} disabled={!/^(0[789][01][0-9]{8}|234[789][01][0-9]{8})$/.test(phone)}>Continue to confirmation</Button>
           </div>}
-          {claimedSlot && confirmed && <div className="space-y-3 rounded-2xl border bg-card p-4"><h3 className="font-display text-xl font-bold">Confirm your reward</h3><p className="text-sm">Network: <strong>{network}</strong></p><p className="text-sm">Phone number: <strong>{phone}</strong></p><p className="text-xs text-muted-foreground">This is a free reward. Your wallet will not be charged. Delivery is not connected yet.</p><Button className="w-full" disabled={busy} onClick={confirmReward}>{busy ? "Saving..." : "Confirm reward details"}</Button></div>}
+          {activeClaimSlot && confirmed && <div className="space-y-3 rounded-2xl border bg-card p-4"><h3 className="font-display text-xl font-bold">Confirm your reward</h3><p className="text-sm">Network: <strong>{network}</strong></p><p className="text-sm">Phone number: <strong>{phone}</strong></p><p className="text-xs text-muted-foreground">This is a free reward. Your wallet will not be charged. Your claim details have been saved. Data delivery is the next integration step.</p><Button className="w-full" disabled={busy} onClick={confirmReward}>{busy ? "Saving..." : "Confirm reward details"}</Button></div>}
         </div>
-        <p className="mt-3 rounded-xl border border-dashed p-3 text-xs text-muted-foreground">Eligibility is checked against verified data-purchase records. Reward delivery will be enabled only after secure provider verification is connected.</p>
+        <p className="mt-3 rounded-xl border border-dashed p-3 text-xs text-muted-foreground">Qualification and slot claiming are now connected to provider-confirmed successful data purchase records. Free data delivery will only be enabled after reward plan mappings and provider-safe fulfillment checks are configured.</p>
       </section>
     </div>
   );
