@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getWeekendGiveawaySettings, saveWeekendGiveawaySettings } from "@/lib/weekend-giveaway.functions";
+import { getAdminWeekendRushClaims, resolveWeekendRushClaim } from "@/lib/weekend-rush-claim.functions";
 
 export const weekendGiveawayQuery = queryOptions({
   queryKey: ["admin", "weekend-giveaway"],
@@ -23,6 +24,8 @@ export function WeekendGiveawaySettings() {
   const { data } = useSuspenseQuery(weekendGiveawayQuery);
   const client = useQueryClient();
   const save = useServerFn(saveWeekendGiveawaySettings);
+  const claimsQuery=useQuery({queryKey:["admin","weekend-rush-claims"],queryFn:()=>getAdminWeekendRushClaims()});
+  const resolveClaim=useServerFn(resolveWeekendRushClaim);
   const [enabled, setEnabled] = useState(data.enabled);
   const [announcement, setAnnouncement] = useState(data.announcement);
   const [reward, setReward] = useState(String(data.reward_data_mb));
@@ -32,6 +35,7 @@ export function WeekendGiveawaySettings() {
   const [closes, setCloses] = useState(localDate(data.closes_at));
   const [maps,setMaps]=useState({mtn_network_id:data.mtn_network_id??"",mtn_data_plan_id:data.mtn_data_plan_id??"",airtel_network_id:data.airtel_network_id??"",airtel_data_plan_id:data.airtel_data_plan_id??"",glo_network_id:data.glo_network_id??"",glo_data_plan_id:data.glo_data_plan_id??""});
   const [busy, setBusy] = useState(false);
+  const [claimBusy,setClaimBusy]=useState("");
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -51,6 +55,13 @@ export function WeekendGiveawaySettings() {
     } finally { setBusy(false); }
   }
 
+
+  async function reconcileClaim(id:string,status:"fulfilled"|"failed"){
+    const promptText=status==="fulfilled"?"Only mark delivered after confirming the provider transaction or recipient receipt. Add verification note:":"Confirm that the provider failed and the reward was not delivered. Add note:";
+    const note=prompt(promptText);if(note===null)return;
+    if(status==="fulfilled"&&!confirm("Have you independently verified that the reward was delivered?"))return;
+    setClaimBusy(id);try{await resolveClaim({data:{claimId:id,status,note}});toast.success("Weekend Rush claim reconciled.");await claimsQuery.refetch();}catch(e){toast.error(e instanceof Error?e.message:"Could not reconcile claim.");}finally{setClaimBusy("");}
+  }
   return (
     <form onSubmit={submit} className="space-y-5">
       <section className="rounded-2xl border bg-card p-4 sm:p-6">
@@ -79,6 +90,8 @@ export function WeekendGiveawaySettings() {
         </div>
         <p className="mt-3 text-xs text-muted-foreground">Times are saved with your device's timezone conversion. Customers will see the opening and closing schedule.</p>
       </section>
+
+      <section className="rounded-2xl border bg-card p-4 sm:p-6"><h2 className="font-display text-lg font-semibold">Weekend Rush claims and delivery status</h2><p className="mt-1 text-xs text-muted-foreground">Review customer slots. For uncertain deliveries, verify provider history before manually resolving. Never mark delivered based only on the app response.</p>{claimsQuery.isLoading?<div className="mt-3 h-20 animate-pulse rounded-xl bg-muted"/>:claimsQuery.error?<p className="mt-3 text-sm text-destructive">Could not load claims.</p>:!claimsQuery.data?.length?<p className="mt-3 text-sm text-muted-foreground">No Weekend Rush claims yet.</p>:<div className="mt-3 space-y-2">{claimsQuery.data.map((claim:any)=><article key={claim.id} className="rounded-xl border p-3 text-sm"><div className="flex flex-wrap items-start justify-between gap-2"><div><strong>Slot {claim.slot?.slot_number??"—"} · @{claim.profile?.username??"customer"}</strong><p className="text-xs text-muted-foreground">{claim.profile?.full_name??claim.user_id} · {claim.network??"Network not set"} · {claim.recipient_phone?("••••"+claim.recipient_phone.slice(-4)):"Phone not set"}</p></div><span className="rounded-full border px-2 py-1 text-xs capitalize">{claim.status.replace(/_/g," ")}</span></div><p className="mt-1 text-xs text-muted-foreground">{new Date(claim.created_at).toLocaleString("en-NG")} · Ref: {claim.provider_reference??claim.id}</p>{claim.admin_resolution_note&&<p className="mt-1 text-xs">Admin note: {claim.admin_resolution_note}</p>}{["manual_review","fulfilment_pending"].includes(claim.status)&&<div className="mt-2 flex flex-wrap gap-2"><button disabled={claimBusy===claim.id} onClick={()=>reconcileClaim(claim.id,"fulfilled")} className="rounded-lg border px-3 py-2 text-xs">Verify delivered</button><button disabled={claimBusy===claim.id} onClick={()=>reconcileClaim(claim.id,"failed")} className="rounded-lg border px-3 py-2 text-xs">Confirm failed</button></div>}</article>)}</div>}</section>
       <div className="flex justify-end"><Button type="submit" disabled={busy}><Save className="mr-2 size-4" />{busy ? "Saving..." : "Save Weekend Rush settings"}</Button></div>
     </form>
   );
