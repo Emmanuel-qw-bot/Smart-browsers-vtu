@@ -8,6 +8,7 @@ import { SupportSettings, supportSettingsQuery } from "@/components/admin/Suppor
 import { WeekendGiveawaySettings, weekendGiveawayQuery } from "@/components/admin/WeekendGiveawaySettings";
 import { AnnouncementSettings } from "@/components/admin/AnnouncementSettings";
 import { PendingBigisubTransactions } from "@/components/admin/PendingBigisubTransactions";
+import { PendingVtuPurchaseMonitoring } from "@/components/admin/PendingVtuPurchaseMonitoring";
 import { AdminAirtimeCash } from "@/components/admin/AdminAirtimeCash";
 import { AdminReferralSettings } from "@/components/admin/AdminReferralSettings";
 import { VendorSubscriptionSettings } from "@/components/admin/VendorSubscriptionSettings";
@@ -44,7 +45,7 @@ function AdminSection() {
   if (!item) throw notFound();
   if (slug === "vtu-providers" || slug === "products-pricing") return <PageScaffold item={item} live><ProviderControl /></PageScaffold>;
   if (slug === "customers") return <PageScaffold item={item} live><CustomersTable /></PageScaffold>;
-  if (slug === "wallet-management" || slug === "transactions") return <PageScaffold item={item} live><div className="space-y-5"><WalletsTable /><PendingBigisubTransactions /></div></PageScaffold>;
+  if (slug === "wallet-management" || slug === "transactions") return <PageScaffold item={item} live><div className="space-y-5"><WalletsTable /><PendingVtuPurchaseMonitoring /><PendingBigisubTransactions /></div></PageScaffold>;
   if (slug === "welcome-bonus") return <PageScaffold item={item} live><WelcomeBonusSettings /></PageScaffold>;
   if (slug === "referral-settings") return <PageScaffold item={item} live><AdminReferralSettings /></PageScaffold>;
   if (slug === "support-settings") return <PageScaffold item={item} live><SupportSettings /></PageScaffold>;
