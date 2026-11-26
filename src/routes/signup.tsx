@@ -132,11 +132,13 @@ function SignupPage() {
       setSentTo(d.email);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
-      setServerError(/already registered/i.test(msg)
-        ? "This email is already registered. Try logging in instead."
-        : /database error/i.test(msg)
-          ? "We couldn't create your account. Your email or phone number may already be registered — please check and try again."
-          : msg);
+      setServerError(/USERNAME_TAKEN/i.test(msg)
+        ? "That username is already taken. Choose another."
+        : /already registered/i.test(msg)
+          ? "This email is already registered. Try logging in instead."
+          : /database error/i.test(msg)
+            ? "We couldn't create your account. Your email, phone or username may already be registered — please check and try again."
+            : msg);
     } finally {
       setLoading(false);
     }
