@@ -114,3 +114,33 @@ export const deliverWeekendRushReward=createServerFn({method:"POST"})
    throw new Error(sent?"Provider outcome uncertain. Do not retry. Contact support with claim "+claim.id:error instanceof Error?error.message:"Reward request failed before delivery.");
   }
  });
+
+export const getAdminWeekendRushClaims=createServerFn({method:"GET"})
+ .middleware([requireSupabaseAuth])
+ .handler(async({context})=>{
+  const {data:admin,error:roleError}=await context.supabase.rpc("has_role",{_user_id:context.userId,_role:"admin"});
+  if(roleError||!admin)throw new Error("Administrator permission required.");
+  const {supabaseAdmin}=await import("@/integrations/supabase/client.server");const db=supabaseAdmin as any;
+  const {data:claims,error}=await db.from("weekend_giveaway_claim_details").select("id,campaign_key,user_id,slot_id,network,recipient_phone,provider_reference,status,created_at,updated_at,admin_resolution_note").order("created_at",{ascending:false}).limit(100);
+  if(error)throw new Error("Could not load Weekend Rush claims.");
+  const userIds=[...new Set((claims??[]).map((c:any)=>c.user_id))];
+  const slotIds=[...new Set((claims??[]).map((c:any)=>c.slot_id))];
+  const [profiles,slots]=await Promise.all([
+   userIds.length?db.from("profiles").select("id,username,full_name").in("id",userIds):Promise.resolve({data:[]}),
+   slotIds.length?db.from("weekend_giveaway_slots").select("id,slot_number").in("id",slotIds):Promise.resolve({data:[]}),
+  ]);
+  const pm=new Map((profiles.data??[]).map((p:any)=>[p.id,p])),sm=new Map((slots.data??[]).map((s:any)=>[s.id,s]));
+  return (claims??[]).map((c:any)=>({...c,profile:pm.get(c.user_id)??null,slot:sm.get(c.slot_id)??null}));
+ });
+
+export const resolveWeekendRushClaim=createServerFn({method:"POST"})
+ .middleware([requireSupabaseAuth])
+ .inputValidator((input)=>z.object({claimId:z.string().uuid(),status:z.enum(["fulfilled","failed"]),note:z.string().trim().min(3).max(500)}).parse(input))
+ .handler(async({data,context})=>{
+  const {data:admin,error:roleError}=await context.supabase.rpc("has_role",{_user_id:context.userId,_role:"admin"});
+  if(roleError||!admin)throw new Error("Administrator permission required.");
+  const {supabaseAdmin}=await import("@/integrations/supabase/client.server");const db=supabaseAdmin as any;
+  const {data:updated,error}=await db.from("weekend_giveaway_claim_details").update({status:data.status,admin_resolution_note:data.note,admin_resolved_by:context.userId,updated_at:new Date().toISOString()}).eq("id",data.claimId).in("status",["manual_review","fulfilment_pending"]).select("id").maybeSingle();
+  if(error||!updated)throw new Error("Claim was not in a resolvable state. Refresh and check its current status.");
+  return {success:true};
+ });
