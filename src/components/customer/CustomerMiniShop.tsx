@@ -86,7 +86,7 @@ export function CustomerMiniShop(){
   }
   async function submitStore(e:React.FormEvent){
     e.preventDefault();setBusy(true);
-    try{await saveStore({data:storeForm});toast.success("Shop profile saved.");await qc.invalidateQueries({queryKey:["mini-shop"]});}
+    try{await saveStore({data:{...storeForm,logo_url:storeForm.logo_url.trim()||null}});toast.success("Shop profile saved.");await qc.invalidateQueries({queryKey:["mini-shop"]});}
     catch(err){toast.error(err instanceof Error?err.message:"Could not save profile.");}
     finally{setBusy(false);}
   }
