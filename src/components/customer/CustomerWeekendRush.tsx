@@ -51,7 +51,7 @@ export function CustomerWeekendRush() {
   const nextTarget = opens && now < opens ? data.opens_at : data.closes_at;
   const label = opens && now < opens ? "Applications open in" : "Applications close in";
   async function apply() { setBusy(true); try { const result = await claim(); setClaimedSlot(result.slot_number); await Promise.all([client.invalidateQueries({ queryKey: ["customer", "weekend-rush-slots"] }),client.invalidateQueries({queryKey:["customer","weekend-rush-eligibility"]})]); toast.success("Congratulations! You have secured a Weekend Rush slot."); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not claim a slot."); } finally { setBusy(false); } }
-  async function confirmReward() { setBusy(true); try { await saveRecipient({ data: { network, phone } }); setConfirmed(true); toast.success("Reward details saved. Delivery is not yet connected."); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not save recipient details."); } finally { setBusy(false); } }
+  async function confirmReward() { setBusy(true); try { await saveRecipient({ data: { network, phone } }); await client.invalidateQueries({queryKey:["customer","weekend-rush-eligibility"]}); setConfirmed(true); toast.success("Reward details saved. Delivery is the next step."); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not save recipient details."); } finally { setBusy(false); } }
 
   return (
     <div className="space-y-5">
