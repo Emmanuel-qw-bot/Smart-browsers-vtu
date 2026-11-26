@@ -412,11 +412,13 @@ function normalizePhone(raw: string): string {
       const pin = decryptProviderSecret(bigisubSecrets?.transaction_pin_encrypted ?? null);
       if (!token || !pin) {
         await refund("Bigisub credentials missing before request");
+        await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "refunded", last_checked_at: new Date().toISOString(), provider_message: "Credentials missing before provider request; wallet refund verified" }).eq("reference", purchaseRef);
         throw new Error("Bigisub is not configured. Wallet debit was reversed.");
       }
       const network = BIGISUB_AIRTIME_NETWORK_IDS[normalizeAirtimeNetworkName(data.networkName).toUpperCase()];
       if (!network) {
         await refund("Unsupported Bigisub network name");
+        await supabaseAdmin.from("bigisub_airtime_pending").update({ status: "refunded", last_checked_at: new Date().toISOString(), provider_message: "Unsupported network before provider request; wallet refund verified" }).eq("reference", purchaseRef);
         throw new Error("Selected network is not supported by Bigisub. Wallet debit was reversed.");
       }
       try {
