@@ -20,7 +20,7 @@ export function AdminReferralSettings(){
  const qualifiedIds=new Set((d?.qualifications??[]).map((q:any)=>q.qualifying_wallet_transaction_id));
  async function saveSettings(){
    if(!s)return;setBusy("save");
-   try{await save({data:{enabled:s.enabled,required_referrals:Number(s.required_referrals),minimum_funding_kobo:Number(s.minimum_funding_kobo),reward_data_mb:Number(s.reward_data_mb)}});
+   try{await save({data:{enabled:s.enabled,required_referrals:Number(s.required_referrals),minimum_funding_kobo:Number(s.minimum_funding_kobo),reward_data_mb:Number(s.reward_data_mb),mtn_network_id:s.mtn_network_id??"",mtn_data_plan_id:s.mtn_data_plan_id??"",airtel_network_id:s.airtel_network_id??"",airtel_data_plan_id:s.airtel_data_plan_id??"",glo_network_id:s.glo_network_id??"",glo_data_plan_id:s.glo_data_plan_id??""}});
      toast.success("Referral settings saved");setDraft(null);await qc.invalidateQueries({queryKey:["admin-referral-data"]});
    }catch(e){toast.error(e instanceof Error?e.message:"Could not save settings");}finally{setBusy("");}
  }
@@ -53,6 +53,12 @@ export function AdminReferralSettings(){
    <button disabled={busy==="save"} onClick={saveSettings} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy==="save"?<Loader2 className="size-4 animate-spin"/>:<Save className="size-4"/>}Save rules</button>
   </section>
 
+
+  <section className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-4 shadow-sm space-y-3 dark:from-violet-950/20 dark:to-card">
+   <div><h2 className="font-display text-lg font-semibold">Referral reward plan mapping</h2><p className="text-xs text-muted-foreground">Set the Arewabundle network ID and data plan ID for the reward size above. The customer chooses a network; the site uses these mappings automatically. 9mobile is not supported for rewards.</p></div>
+   {(["mtn","airtel","glo"] as const).map(n=>{const label=n==="mtn"?"MTN":n==="airtel"?"Airtel":"Glo";return <div key={n} className="grid gap-3 rounded-xl border bg-card p-3 sm:grid-cols-2"><strong className="sm:col-span-2">{label}</strong><label className="text-sm">Network ID<input className="mt-1 w-full rounded-xl border bg-background p-3" value={s[n+"_network_id"]??""} onChange={e=>setDraft({...s,[n+"_network_id"]:e.target.value})}/></label><label className="text-sm">Data plan ID<input className="mt-1 w-full rounded-xl border bg-background p-3" value={s[n+"_data_plan_id"]??""} onChange={e=>setDraft({...s,[n+"_data_plan_id"]:e.target.value})}/></label></div>})}
+   <button disabled={busy==="save"} onClick={saveSettings} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy==="save"?<Loader2 className="size-4 animate-spin"/>:<Save className="size-4"/>}Save reward mappings</button>
+  </section>
   <section className="rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm space-y-3 dark:from-sky-950/20 dark:to-card">
    <div><h2 className="font-display text-lg font-semibold">Verify referral wallet funding</h2><p className="text-xs text-muted-foreground">Manual wallet credits do NOT qualify automatically. Verify the actual payment first, then mark the deposit eligible. Only deposit-category transactions ≥ configured minimum are accepted.</p></div>
    {(d.deposits??[]).filter((t:any)=>!qualifiedIds.has(t.id)&&t.amount_kobo>=s.minimum_funding_kobo).length===0?<p className="text-sm text-muted-foreground">No unverified qualifying deposit transactions.</p>:
