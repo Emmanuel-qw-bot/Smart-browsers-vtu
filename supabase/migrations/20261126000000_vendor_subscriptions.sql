@@ -443,3 +443,5 @@ returns jsonb language sql stable security definer set search_path=public as $$
  from public.vendor_stores s where s.slug=lower(trim(_slug)) limit 1;
 $$;
 grant execute on function public.get_vendor_storefront(text) to anon,authenticated;
+
+update public.vendor_subscription_plans set features=features||'{"stock_alert_threshold":3}'::jsonb where plan_key in ('pro','enterprise');
