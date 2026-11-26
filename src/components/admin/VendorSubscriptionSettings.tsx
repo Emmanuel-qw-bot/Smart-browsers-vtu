@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { toast } from "sonner";\nimport { VendorSubscriptionAdmin } from "@/components/admin/VendorSubscriptionAdmin";
 import { Crown, Sparkles, Rocket, Save, ToggleLeft, ToggleRight, Check, ShieldCheck, Image, Megaphone, Pin, BarChart3, Users, Package, Bell, BadgeCheck } from "lucide-react";
 
 type Plan={plan_key:"starter"|"pro"|"enterprise";name:string;description:string;weekly_price_kobo:number;monthly_price_kobo:number;max_active_products:number|null;features:Record<string,any>;benefits:string[];enabled:boolean;popular:boolean;grace_days:number};
@@ -29,5 +29,5 @@ export function VendorSubscriptionSettings(){
    <div className="grid gap-3 sm:grid-cols-2"><label className="flex items-center justify-between rounded-xl border p-3 text-sm">Show “Popular” tag <input type="checkbox" checked={editing.popular} onChange={e=>setEditing({...editing,popular:e.target.checked})}/></label><label className="space-y-1 text-sm font-semibold">Grace period after expiry (days)<input type="number" min="0" max="30" className="w-full rounded-xl border bg-background px-3 py-2" value={editing.grace_days} onChange={e=>setEditing({...editing,grace_days:Math.min(30,Math.max(0,Number(e.target.value)))})}/></label></div>
    <button onClick={save} disabled={saving} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-bold text-white shadow-md transition hover:brightness-110 disabled:opacity-60"><Save className="size-4"/>{saving?"Saving…":"Save Plan Changes"}</button>
   </div></section>}
- </div>;
+  <VendorSubscriptionAdmin />\n </div>;
 }
