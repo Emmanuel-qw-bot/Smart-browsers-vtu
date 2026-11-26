@@ -352,3 +352,32 @@ returns jsonb language sql stable security definer set search_path=public as $$
  and p.is_available=true and public.vendor_feature_enabled(s.owner_id,'campaigns');
 $$;
 grant execute on function public.get_active_market_campaigns() to anon,authenticated;
+
+-- Lightweight, privacy-preserving product view counters (no visitor identifiers stored).
+create table if not exists public.vendor_product_daily_views(
+ product_id uuid not null references public.vendor_products(id) on delete cascade,
+ store_id uuid not null references public.vendor_stores(id) on delete cascade,
+ view_date date not null default (timezone('utc',now())::date),
+ view_count bigint not null default 0 check(view_count>=0),
+ primary key(product_id,view_date)
+);
+alter table public.vendor_product_daily_views enable row level security;
+grant select on public.vendor_product_daily_views to authenticated;
+drop policy if exists "Vendors read their own product views" on public.vendor_product_daily_views;
+create policy "Vendors read their own product views" on public.vendor_product_daily_views for select to authenticated
+using(exists(select 1 from public.vendor_stores s where s.id=store_id and s.owner_id=auth.uid()));
+grant all on public.vendor_product_daily_views to service_role;
+
+create or replace function public.record_vendor_product_view(_product_id uuid)
+returns boolean language plpgsql security definer set search_path=public as $$
+declare p vendor_products%rowtype;
+begin
+ select * into p from vendor_products where id=_product_id and is_available=true;
+ if not found then return false; end if;
+ insert into vendor_product_daily_views(product_id,store_id,view_date,view_count)
+ values(p.id,p.store_id,timezone('utc',now())::date,1)
+ on conflict(product_id,view_date) do update set view_count=vendor_product_daily_views.view_count+1;
+ return true;
+end $$;
+revoke execute on function public.record_vendor_product_view(uuid) from public;
+grant execute on function public.record_vendor_product_view(uuid) to anon,authenticated;
