@@ -333,3 +333,22 @@ begin
 end $$;
 revoke execute on function public.purchase_vendor_subscription(text,text) from public,anon;
 grant execute on function public.purchase_vendor_subscription(text,text) to authenticated;
+
+-- Enterprise campaign eligibility is enforced by the public deals RPC too.
+create or replace function public.get_active_market_campaigns()
+returns jsonb language sql stable security definer set search_path=public as $$
+ select coalesce(jsonb_agg(jsonb_build_object(
+  'campaign_id',c.id,'campaign_title',c.title,'campaign_type',c.campaign_type,
+  'discount_percent',c.discount_percent,'promotional_price_kobo',c.promotional_price_kobo,
+  'starts_at',c.starts_at,'ends_at',c.ends_at,'product_id',p.id,
+  'product_title',p.title,'product_description',p.description,'category',p.category,
+  'state',p.state,'original_price_kobo',p.price_kobo,'image_url',p.image_url,
+  'store_name',s.store_name,'store_slug',s.slug
+ ) order by c.ends_at asc),'[]'::jsonb)
+ from public.vendor_product_campaigns c
+ join public.vendor_products p on p.id=c.product_id
+ join public.vendor_stores s on s.id=c.store_id
+ where c.is_active=true and c.starts_at<=now() and c.ends_at>now()
+ and p.is_available=true and public.vendor_feature_enabled(s.owner_id,'campaigns');
+$$;
+grant execute on function public.get_active_market_campaigns() to anon,authenticated;
