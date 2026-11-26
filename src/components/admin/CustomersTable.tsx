@@ -49,5 +49,6 @@ export function CustomersTable() {
         </tbody>
       </table>
     </div>}
+    </div>
   );
 }
