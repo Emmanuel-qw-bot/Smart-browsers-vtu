@@ -20,6 +20,7 @@ import { CustomerSquadRecharge } from "@/components/customer/CustomerSquadRechar
 import { CustomerMiniShop } from "@/components/customer/CustomerMiniShop";
 import { FeaturedMarketDeals } from "@/components/customer/FeaturedMarketDeals";
 import { VendorSubscriptions } from "@/components/customer/VendorSubscriptions";
+import { CustomerDataLockVault } from "@/components/customer/CustomerDataLockVault";
 
 export const Route = createFileRoute("/_authenticated/app/$section")({
   loader: async ({ params, context }) => {
@@ -86,6 +87,7 @@ function SectionPage() {
 
   if (slug === "mini-shop") return <PageScaffold item={item} live><CustomerMiniShop /></PageScaffold>;
   if (slug === "subscriptions") return <PageScaffold item={item} live><VendorSubscriptions /></PageScaffold>;
+  if (slug === "datalock-vault") return <PageScaffold item={item} live><CustomerDataLockVault /></PageScaffold>;
 
   if (slug === "buy-data") {
     return (
