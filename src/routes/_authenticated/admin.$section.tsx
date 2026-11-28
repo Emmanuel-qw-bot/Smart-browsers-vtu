@@ -13,6 +13,7 @@ import { AdminAirtimeCash } from "@/components/admin/AdminAirtimeCash";
 import { AdminReferralSettings } from "@/components/admin/AdminReferralSettings";
 import { VendorSubscriptionSettings } from "@/components/admin/VendorSubscriptionSettings";
 import { WeekendRushClaimAdmin } from "@/components/admin/WeekendRushClaimAdmin";
+import { AdminDataLockSettings } from "@/components/admin/AdminDataLockSettings";
 
 export const Route = createFileRoute("/_authenticated/admin/$section")({
   loader: async ({ params, context }) => {
@@ -54,6 +55,7 @@ function AdminSection() {
   if (slug === "announcements") return <PageScaffold item={item} live><AnnouncementSettings /></PageScaffold>;
   if (slug === "airtime-cash") return <PageScaffold item={item} live><AdminAirtimeCash /></PageScaffold>;
   if (slug === "vendor-subscriptions") return <PageScaffold item={item} live><VendorSubscriptionSettings /></PageScaffold>;
+  if (slug === "datalock-vault") return <PageScaffold item={item} live><AdminDataLockSettings /></PageScaffold>;
   if (slug !== "overview") return <PageScaffold item={item} />;
   return (
     <PageScaffold item={item}>
