@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Wallet, Wifi, Smartphone, ArrowLeftRight, Receipt, Gift, Users,
   Zap, Megaphone, Bell, LifeBuoy, BarChart3, UserCog, Server, CreditCard, Tags,
   BadgePercent, Share2, Crown, PartyPopper, Sparkles, ShieldCheck, LineChart,
-  Headphones, Settings, UserCircle, Store, type LucideIcon,
+  Headphones, Settings, UserCircle, Store, LockKeyhole, type LucideIcon,
 } from "lucide-react";
 
 export interface NavItem {
@@ -24,6 +24,7 @@ export const customerNav: NavItem[] = [
   { slug: "referrals", label: "Referrals", icon: Users, description: "Invite friends and earn when they join." },
   { slug: "mini-shop", label: "My Mini Shop", icon: Store, description: "Create a small online catalogue and issue receipts for customers." },
   { slug: "subscriptions", label: "Seller Plans", icon: Crown, description: "Unlock more products and seller tools." },
+  { slug: "datalock-vault", label: "DataLock Vault", icon: LockKeyhole, description: "Secure data and control gradual delivery." },
   { slug: "weekend-rush", label: "Weekend Rush", icon: Zap, description: "Weekend-only deals and giveaways." },
   { slug: "promotions", label: "Promotions", icon: Megaphone, description: "Current offers and discounts." },
   { slug: "notifications", label: "Notifications", icon: Bell, description: "Alerts about your account and purchases." },
@@ -53,6 +54,7 @@ export const adminNav: NavItem[] = [
   { slug: "support-settings", label: "Support Settings", icon: Headphones, description: "Support channels, hours and contact details." },
   { slug: "airtime-cash", label: "Airtime-to-Cash Requests", icon: ArrowLeftRight, description: "Configure conversion rates and verify customer requests." },
   { slug: "vendor-subscriptions", label: "Vendor Subscriptions", icon: Crown, description: "Manage Starter, Pro and Enterprise plan prices and features." },
+  { slug: "datalock-vault", label: "DataLock Vault Settings", icon: LockKeyhole, description: "Configure premium access, fees and vault rules." },
   { slug: "platform-settings", label: "Platform Settings", icon: Settings, description: "General platform configuration." },
 ];
 
