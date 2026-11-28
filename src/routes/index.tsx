@@ -21,6 +21,7 @@ export const Route = createFileRoute("/")({
 
 function Welcome() {
   const [splash, setSplash] = useState(true);
+  const [splashStage, setSplashStage] = useState(0);
   const [publicProductId, setPublicProductId] = useState<string | null>(null);
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("product");
@@ -31,8 +32,10 @@ function Welcome() {
   }, []);
   useEffect(() => {
     if(publicProductId)return;
-    const t = setTimeout(() => setSplash(false), 3600);
-    return () => clearTimeout(t);
+    const sloganTimer = setTimeout(() => setSplashStage(1), 2100);
+    const signatureTimer = setTimeout(() => setSplashStage(2), 3400);
+    const exitTimer = setTimeout(() => setSplash(false), 4800);
+    return () => { clearTimeout(sloganTimer); clearTimeout(signatureTimer); clearTimeout(exitTimer); };
   }, []);
 
   if(publicProductId)return <PublicProductPage productId={publicProductId}/>;
@@ -42,7 +45,12 @@ function Welcome() {
       <div className="fixed inset-0 grid place-items-center bg-brand px-6 text-primary-foreground" onClick={() => setSplash(false)}>
         <div className="w-full max-w-md text-center">
           <Logo animated />
-          <p className="mt-2 text-sm font-bold tracking-[0.5em] animate-rise" style={{ animationDelay: "2.2s" }}>SBR 2026</p>
+          <div className="mt-5 min-h-[3.5rem] flex items-center justify-center">
+            {splashStage >= 1 && <p key="slogan" className="animate-rise text-xl sm:text-2xl font-extrabold tracking-wide text-cyan-300 drop-shadow-[0_0_16px_rgba(34,211,238,0.45)]">BROWSE MORE. SPEND LESS.</p>}
+          </div>
+          <div className="min-h-[2rem] flex items-center justify-center">
+            {splashStage >= 2 && <p key="signature" className="animate-rise text-sm font-bold tracking-[0.55em] text-primary-foreground/90">SBR 2026</p>}
+          </div>
         </div>
       </div>
     );
